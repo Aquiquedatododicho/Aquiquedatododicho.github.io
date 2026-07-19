@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1221" />
+  <meta name="description" content="Tu entrenador de gimnasio y dieta personalizada según tu edad, peso y estatura." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>GymFit — Rutina y Dieta</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg1: #0b1221; --bg2: #162040;
+      --card: rgba(255,255,255,0.05);
+      --border: rgba(255,255,255,0.08);
+      --txt: #e7f1ff; --muted: #a7b9d6;
+      --accent: #06b6d4; --accent2: #3b82f6;
+      --green: #34d399; --orange: #fbbf24; --red: #f87171;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(180deg, var(--bg1), var(--bg2) 80%) fixed;
+      color: var(--txt);
+      min-height: 100vh;
+      line-height: 1.55;
+      padding-bottom: 84px;
+    }
+    .container { max-width: 640px; margin: 0 auto; padding: 18px 16px; }
+    header.app { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .logo {
+      width: 46px; height: 46px; border-radius: 12px; flex-shrink: 0;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px; box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    }
+    header.app h1 { font-size: 1.25rem; }
+    header.app p { color: var(--muted); font-size: 0.82rem; }
+
+    .card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 14px; padding: 16px; margin-bottom: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    .card h2 { font-size: 1.05rem; color: #d5e4ff; margin-bottom: 10px; }
+    .card h3 { font-size: 0.95rem; color: #cfe0ff; margin: 10px 0 6px; }
+    .muted { color: var(--muted); font-size: 0.88rem; }
+
+    /* ---- tabs ---- */
+    nav.tabs {
+      position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
+      display: flex; justify-content: space-around;
+      background: rgba(11,18,33,0.92); backdrop-filter: blur(10px);
+      border-top: 1px solid var(--border);
+      padding: 8px 0 calc(8px + env(safe-area-inset-bottom));
+    }
+    nav.tabs button {
+      background: none; border: none; color: var(--muted);
+      font-size: 0.75rem; font-family: inherit; cursor: pointer;
+      display: flex; flex-direction: column; align-items: center; gap: 2px;
+      padding: 4px 18px; border-radius: 10px;
+    }
+    nav.tabs button .ico { font-size: 1.35rem; }
+    nav.tabs button.active { color: var(--accent); }
+    .view { display: none; }
+    .view.active { display: block; animation: fade .25s ease; }
+    @keyframes fade { from { opacity: 0; transform: translateY(6px);} to { opacity: 1; transform: none;} }
+
+    /* ---- forms ---- */
+    label { display: block; font-size: 0.85rem; color: var(--muted); margin: 12px 0 4px; }
+    input, select {
+      width: 100%; padding: 11px 12px; border-radius: 10px;
+      border: 1px solid var(--border); background: rgba(255,255,255,0.07);
+      color: var(--txt); font-size: 1rem; font-family: inherit;
+    }
+    input:focus, select:focus { outline: 2px solid var(--accent); border-color: transparent; }
+    select option { background: var(--bg2); color: var(--txt); }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    button.primary {
+      width: 100%; margin-top: 18px; padding: 13px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none; border-radius: 12px; color: #031b30;
+      font-weight: 700; font-size: 1rem; font-family: inherit; cursor: pointer;
+    }
+    button.primary:active { transform: scale(0.98); }
+
+    /* ---- rutina ---- */
+    .day {
+      border: 1px solid var(--border); border-radius: 12px;
+      margin-bottom: 10px; overflow: hidden;
+    }
+    .day > .head {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 14px; cursor: pointer; background: rgba(255,255,255,0.04);
+    }
+    .day > .head strong { font-size: 0.95rem; }
+    .day > .head .sub { font-size: 0.78rem; color: var(--muted); }
+    .day.today > .head { background: linear-gradient(90deg, rgba(6,182,212,0.25), rgba(59,130,246,0.15)); }
+    .badge {
+      font-size: 0.7rem; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+      background: var(--accent); color: #031b30; white-space: nowrap;
+    }
+    .badge.rest { background: rgba(255,255,255,0.15); color: var(--muted); }
+    .day .body { display: none; padding: 4px 14px 12px; }
+    .day.open .body { display: block; }
+    .ex {
+      display: flex; justify-content: space-between; align-items: baseline; gap: 10px;
+      padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .ex:last-child { border-bottom: none; }
+    .ex .n { font-size: 0.92rem; }
+    .ex .n small { display: block; color: var(--muted); font-size: 0.75rem; }
+    .ex .sr { color: #67e8f9; font-weight: 600; font-size: 0.88rem; white-space: nowrap; }
+
+    /* ---- dieta ---- */
+    .stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 4px; }
+    .stat {
+      background: rgba(255,255,255,0.05); border: 1px solid var(--border);
+      border-radius: 12px; padding: 12px; text-align: center;
+    }
+    .stat .v { font-size: 1.35rem; font-weight: 700; color: #67e8f9; }
+    .stat .l { font-size: 0.72rem; color: var(--muted); margin-top: 2px; }
+    .macros { display: flex; gap: 8px; margin-top: 10px; }
+    .macro { flex: 1; text-align: center; border-radius: 10px; padding: 10px 4px; font-size: 0.8rem; }
+    .macro b { display: block; font-size: 1.05rem; }
+    .m-p { background: rgba(52,211,153,0.15); color: var(--green); }
+    .m-c { background: rgba(251,191,36,0.15); color: var(--orange); }
+    .m-g { background: rgba(248,113,113,0.15); color: var(--red); }
+    .meal { padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.06); }
+    .meal:last-child { border-bottom: none; }
+    .meal b { color: #cfe0ff; font-size: 0.92rem; }
+    .meal p { color: var(--muted); font-size: 0.86rem; }
+    .notice {
+      background: rgba(251,191,36,0.12); border: 1px solid rgba(251,191,36,0.35);
+      border-radius: 12px; padding: 12px 14px; font-size: 0.85rem;
+      color: #fde68a; margin-bottom: 14px;
+    }
+    .imc-bar { height: 8px; border-radius: 999px; margin-top: 10px; position: relative;
+      background: linear-gradient(90deg, #60a5fa 0 18.5%, #34d399 18.5% 50%, #fbbf24 50% 75%, #f87171 75%); }
+    .imc-dot {
+      position: absolute; top: -4px; width: 16px; height: 16px; border-radius: 50%;
+      background: #fff; border: 3px solid var(--bg1); transform: translateX(-50%);
+    }
+    .center-msg { text-align: center; padding: 40px 20px; color: var(--muted); }
+    .center-msg .big { font-size: 2.5rem; margin-bottom: 10px; }
+    #installBtn { display: none; margin-top: 10px; }
+    footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="app">
+      <div class="logo">🏋️</div>
+      <div>
+        <h1>GymFit</h1>
+        <p>Tu rutina y tu dieta, hechas a tu medida</p>
+      </div>
+    </header>
+
+    <!-- ============ RUTINA ============ -->
+    <section id="view-rutina" class="view">
+      <div id="rutina-content"></div>
+    </section>
+
+    <!-- ============ DIETA ============ -->
+    <section id="view-dieta" class="view">
+      <div id="dieta-content"></div>
+    </section>
+
+    <!-- ============ PERFIL ============ -->
+    <section id="view-perfil" class="view">
+      <div class="card">
+        <h2>👤 Tu perfil</h2>
+        <p class="muted">Con estos datos calculo tu rutina y tu dieta.</p>
+        <form id="perfilForm">
+          <label for="nombre">Nombre</label>
+          <input type="text" id="nombre" placeholder="Tu nombre" />
+          <div class="row2">
+            <div>
+              <label for="edad">Edad (años)</label>
+              <input type="number" id="edad" min="12" max="99" required inputmode="numeric" placeholder="14" />
+            </div>
+            <div>
+              <label for="sexo">Sexo</label>
+              <select id="sexo">
+                <option value="h">Hombre</option>
+                <option value="m">Mujer</option>
+              </select>
+            </div>
+          </div>
+          <div class="row2">
+            <div>
+              <label for="peso">Peso (kg)</label>
+              <input type="number" id="peso" min="30" max="250" step="0.1" required inputmode="decimal" placeholder="60" />
+            </div>
+            <div>
+              <label for="altura">Estatura (cm)</label>
+              <input type="number" id="altura" min="120" max="230" required inputmode="numeric" placeholder="170" />
+            </div>
+          </div>
+          <label for="actividad">Actividad diaria (fuera del gym)</label>
+          <select id="actividad">
+            <option value="1.2">Sedentaria (casi todo el día sentado)</option>
+            <option value="1.375" selected>Ligera (camino, instituto/trabajo)</option>
+            <option value="1.55">Moderada (bastante movimiento)</option>
+            <option value="1.725">Alta (trabajo físico o mucho deporte)</option>
+          </select>
+          <label for="objetivo">Objetivo</label>
+          <select id="objetivo">
+            <option value="perder">Perder grasa</option>
+            <option value="mantener" selected>Mantenerme en forma</option>
+            <option value="ganar">Ganar músculo</option>
+          </select>
+          <label for="dias">Días de gimnasio a la semana</label>
+          <select id="dias">
+            <option value="3" selected>3 días</option>
+            <option value="4">4 días</option>
+            <option value="5">5 días</option>
+          </select>
+          <button type="submit" class="primary">Guardar y generar plan 💪</button>
+        </form>
+        <button id="installBtn" class="primary">📲 Instalar la app en el móvil</button>
+      </div>
+      <footer>GymFit · Los cálculos son orientativos, no sustituyen a un médico o nutricionista.</footer>
+    </section>
+  </div>
+
+  <nav class="tabs">
+    <button data-view="rutina" class="active"><span class="ico">🏋️</span>Rutina</button>
+    <button data-view="dieta"><span class="ico">🥗</span>Dieta</button>
+    <button data-view="perfil"><span class="ico">👤</span>Perfil</button>
+  </nav>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const KEY = "gymfit_profile";
+
+/* ================= PERFIL ================= */
+function loadProfile() {
+  try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; }
+}
+function saveProfile(p) { localStorage.setItem(KEY, JSON.stringify(p)); }
+
+$("#perfilForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const p = {
+    nombre: $("#nombre").value.trim(),
+    edad: +$("#edad").value,
+    sexo: $("#sexo").value,
+    peso: +$("#peso").value,
+    altura: +$("#altura").value,
+    actividad: +$("#actividad").value,
+    objetivo: $("#objetivo").value,
+    dias: +$("#dias").value
+  };
+  saveProfile(p);
+  render();
+  showView("rutina");
+});
+
+function fillForm(p) {
+  if (!p) return;
+  $("#nombre").value = p.nombre || "";
+  $("#edad").value = p.edad; $("#sexo").value = p.sexo;
+  $("#peso").value = p.peso; $("#altura").value = p.altura;
+  $("#actividad").value = p.actividad; $("#objetivo").value = p.objetivo;
+  $("#dias").value = p.dias;
+}
+
+/* ================= RUTINAS ================= */
+// Ejercicio: [nombre, detalle, series x reps]
+const RUTINAS = {
+  3: [
+    { nombre: "Full Body A", grupo: "Cuerpo completo", ejercicios: [
+      ["Sentadilla con barra o mancuernas", "Piernas y glúteo", "4 × {R}"],
+      ["Press de banca (o flexiones)", "Pecho, hombro y tríceps", "4 × {R}"],
+      ["Remo con barra o mancuerna", "Espalda", "4 × {R}"],
+      ["Press militar con mancuernas", "Hombros", "3 × {R}"],
+      ["Plancha abdominal", "Core", "3 × 30-45 seg"]
+    ]},
+    { nombre: "Full Body B", grupo: "Cuerpo completo", ejercicios: [
+      ["Peso muerto rumano", "Femoral, glúteo y espalda baja", "4 × {R}"],
+      ["Jalón al pecho (o dominadas asistidas)", "Espalda y bíceps", "4 × {R}"],
+      ["Press inclinado con mancuernas", "Pecho superior", "3 × {R}"],
+      ["Zancadas caminando", "Piernas", "3 × {R} por pierna"],
+      ["Curl de bíceps con mancuernas", "Bíceps", "3 × {R}"]
+    ]},
+    { nombre: "Full Body C", grupo: "Cuerpo completo", ejercicios: [
+      ["Prensa de piernas", "Cuádriceps y glúteo", "4 × {R}"],
+      ["Fondos en paralelas (o en banco)", "Pecho y tríceps", "3 × {R}"],
+      ["Remo en polea baja", "Espalda", "4 × {R}"],
+      ["Elevaciones laterales", "Hombro lateral", "3 × {R}"],
+      ["Crunch en polea o abdominales", "Core", "3 × 15-20"]
+    ]}
+  ],
+  4: [
+    { nombre: "Torso A", grupo: "Pecho · Espalda · Hombro", ejercicios: [
+      ["Press de banca", "Pecho", "4 × {R}"],
+      ["Remo con barra", "Espalda", "4 × {R}"],
+      ["Press militar", "Hombros", "3 × {R}"],
+      ["Jalón al pecho", "Dorsal", "3 × {R}"],
+      ["Curl de bíceps + extensión de tríceps", "Brazos (superserie)", "3 × {R}"]
+    ]},
+    { nombre: "Pierna A", grupo: "Piernas y core", ejercicios: [
+      ["Sentadilla con barra", "Cuádriceps y glúteo", "4 × {R}"],
+      ["Peso muerto rumano", "Femoral y glúteo", "4 × {R}"],
+      ["Prensa de piernas", "Piernas", "3 × {R}"],
+      ["Elevación de gemelos", "Gemelos", "4 × 15-20"],
+      ["Plancha abdominal", "Core", "3 × 30-45 seg"]
+    ]},
+    { nombre: "Torso B", grupo: "Pecho · Espalda · Hombro", ejercicios: [
+      ["Press inclinado con mancuernas", "Pecho superior", "4 × {R}"],
+      ["Dominadas (o jalón agarre estrecho)", "Espalda", "4 × {R}"],
+      ["Elevaciones laterales", "Hombro lateral", "4 × {R}"],
+      ["Remo en polea baja", "Espalda media", "3 × {R}"],
+      ["Curl martillo + fondos en banco", "Brazos (superserie)", "3 × {R}"]
+    ]},
+    { nombre: "Pierna B", grupo: "Piernas y core", ejercicios: [
+      ["Zancadas con mancuernas", "Piernas y glúteo", "4 × {R} por pierna"],
+      ["Hip thrust", "Glúteo", "4 × {R}"],
+      ["Curl femoral en máquina", "Femoral", "3 × {R}"],
+      ["Extensión de cuádriceps", "Cuádriceps", "3 × {R}"],
+      ["Crunch abdominal", "Core", "3 × 15-20"]
+    ]}
+  ],
+  5: [
+    { nombre: "Empuje (Push)", grupo: "Pecho · Hombro · Tríceps", ejercicios: [
+      ["Press de banca", "Pecho", "4 × {R}"],
+      ["Press militar con mancuernas", "Hombros", "4 × {R}"],
+      ["Press inclinado", "Pecho superior", "3 × {R}"],
+      ["Elevaciones laterales", "Hombro lateral", "3 × {R}"],
+      ["Extensión de tríceps en polea", "Tríceps", "3 × {R}"]
+    ]},
+    { nombre: "Tirón (Pull)", grupo: "Espalda · Bíceps", ejercicios: [
+      ["Dominadas (o jalón al pecho)", "Dorsal", "4 × {R}"],
+      ["Remo con barra", "Espalda media", "4 × {R}"],
+      ["Remo en polea baja", "Espalda", "3 × {R}"],
+      ["Face pull", "Hombro posterior", "3 × {R}"],
+      ["Curl de bíceps con barra", "Bíceps", "3 × {R}"]
+    ]},
+    { nombre: "Pierna", grupo: "Piernas y core", ejercicios: [
+      ["Sentadilla con barra", "Cuádriceps y glúteo", "4 × {R}"],
+      ["Peso muerto rumano", "Femoral", "4 × {R}"],
+      ["Prensa de piernas", "Piernas", "3 × {R}"],
+      ["Elevación de gemelos", "Gemelos", "4 × 15-20"],
+      ["Plancha abdominal", "Core", "3 × 30-45 seg"]
+    ]},
+    { nombre: "Torso", grupo: "Pecho y espalda", ejercicios: [
+      ["Press inclinado con mancuernas", "Pecho superior", "4 × {R}"],
+      ["Remo con mancuerna a una mano", "Espalda", "4 × {R}"],
+      ["Aperturas en polea o mancuernas", "Pecho", "3 × {R}"],
+      ["Jalón al pecho agarre estrecho", "Dorsal", "3 × {R}"],
+      ["Curl martillo + press francés", "Brazos (superserie)", "3 × {R}"]
+    ]},
+    { nombre: "Pierna + Core", grupo: "Piernas, glúteo y abdomen", ejercicios: [
+      ["Hip thrust", "Glúteo", "4 × {R}"],
+      ["Zancadas caminando", "Piernas", "3 × {R} por pierna"],
+      ["Curl femoral", "Femoral", "3 × {R}"],
+      ["Extensión de cuádriceps", "Cuádriceps", "3 × {R}"],
+      ["Elevaciones de piernas colgado", "Abdomen", "3 × 10-15"]
+    ]}
+  ]
+};
+
+const DIAS_SEMANA = { 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5] }; // 1=lunes
+const NOMBRE_DIA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+
+function esquema(objetivo) {
+  if (objetivo === "perder")  return { reps: "12-15", descanso: "45-60 seg", nota: "Ritmo alto y descansos cortos para quemar más. Añade 15-20 min de cardio al acabar si puedes." };
+  if (objetivo === "ganar")   return { reps: "8-12",  descanso: "60-90 seg", nota: "Sube el peso poco a poco cada semana (sobrecarga progresiva) manteniendo buena técnica." };
+  return { reps: "10-12", descanso: "60 seg", nota: "Constancia ante todo: mejor entrenar siempre que entrenar mucho una semana y nada la siguiente." };
+}
+
+function renderRutina(p) {
+  const cont = $("#rutina-content");
+  if (!p) {
+    cont.innerHTML = `<div class="card center-msg"><div class="big">👋</div>
+      <p>¡Hola! Para crear tu rutina necesito conocerte.</p>
+      <button class="primary" onclick="showView('perfil')">Completar mi perfil</button></div>`;
+    return;
+  }
+  const plan = RUTINAS[p.dias];
+  const esq = esquema(p.objetivo);
+  const diasGym = DIAS_SEMANA[p.dias];
+  const hoy = new Date().getDay(); // 0=domingo
+  const idxHoy = diasGym.indexOf(hoy); // -1 si hoy es descanso
+
+  let html = `<div class="card">
+    <h2>🗓️ Tu semana (${p.dias} días de gym)</h2>
+    <p class="muted">${idxHoy >= 0
+      ? `Hoy es ${NOMBRE_DIA[hoy].toLowerCase()} y toca <b style="color:#67e8f9">${plan[idxHoy].nombre}</b>. ¡A darle! 🔥`
+      : `Hoy es ${NOMBRE_DIA[hoy].toLowerCase()}: día de descanso. Recuperarse también es entrenar 😴`}</p>
+    <p class="muted" style="margin-top:8px">⏱️ Descanso entre series: <b>${esq.descanso}</b> · 🔥 Calienta siempre 5-10 min antes.</p>
+  </div>`;
+
+  plan.forEach((dia, i) => {
+    const diaSem = diasGym[i];
+    const esHoy = diaSem === hoy;
+    const ejercicios = dia.ejercicios.map(e =>
+      `<div class="ex"><div class="n">${e[0]}<small>${e[1]}</small></div><div class="sr">${e[2].replace("{R}", esq.reps)}</div></div>`
+    ).join("");
+    html += `<div class="day${esHoy ? " today open" : ""}">
+      <div class="head" onclick="this.parentElement.classList.toggle('open')">
+        <div><strong>${dia.nombre}</strong><div class="sub">${NOMBRE_DIA[diaSem]} · ${dia.grupo}</div></div>
+        ${esHoy ? '<span class="badge">HOY</span>' : ""}
+      </div>
+      <div class="body">${ejercicios}</div>
+    </div>`;
+  });
+
+  html += `<div class="card"><h2>💡 Consejo</h2><p class="muted">${esq.nota}</p></div>`;
+  cont.innerHTML = html;
+}
+
+/* ================= DIETA ================= */
+function calcDieta(p) {
+  const alturaM = p.altura / 100;
+  const imc = p.peso / (alturaM * alturaM);
+  // Mifflin-St Jeor
+  let tmb = 10 * p.peso + 6.25 * p.altura - 5 * p.edad + (p.sexo === "h" ? 5 : -161);
+  const tdee = tmb * p.actividad;
+  const menor = p.edad < 18;
+  let kcal = tdee;
+  if (p.objetivo === "perder") kcal = menor ? tdee : tdee * 0.85; // sin déficit para menores
+  if (p.objetivo === "ganar")  kcal = tdee * 1.10;
+  kcal = Math.round(kcal / 10) * 10;
+
+  const gProt = { perder: 2.0, mantener: 1.6, ganar: 1.8 }[p.objetivo];
+  const prot = Math.round(gProt * p.peso);
+  const grasa = Math.round(kcal * 0.27 / 9);
+  const carbs = Math.max(0, Math.round((kcal - prot * 4 - grasa * 9) / 4));
+  return { imc, tmb: Math.round(tmb), tdee: Math.round(tdee), kcal, prot, grasa, carbs, menor };
+}
+
+function imcCategoria(imc) {
+  if (imc < 18.5) return ["Bajo peso", "#60a5fa"];
+  if (imc < 25)   return ["Peso saludable", "#34d399"];
+  if (imc < 30)   return ["Sobrepeso", "#fbbf24"];
+  return ["Obesidad", "#f87171"];
+}
+
+function menuEjemplo(kcal) {
+  if (kcal < 2100) return [
+    ["🌅 Desayuno", "Yogur natural con avena (40 g), plátano y un puñado pequeño de nueces."],
+    ["🍎 Media mañana", "Una fruta y un puñado de almendras."],
+    ["🍽️ Comida", "Pechuga de pollo a la plancha con arroz (60 g en seco) y ensalada con aceite de oliva."],
+    ["🥪 Merienda", "Sándwich integral de atún o pavo."],
+    ["🌙 Cena", "Tortilla francesa de 2 huevos con verduras salteadas y una rebanada de pan integral."]
+  ];
+  if (kcal < 2600) return [
+    ["🌅 Desayuno", "Avena (60 g) con leche, plátano, canela y una cucharada de crema de cacahuete."],
+    ["🍎 Media mañana", "Bocadillo pequeño de pavo o queso fresco y una fruta."],
+    ["🍽️ Comida", "Arroz o pasta (80 g en seco) con pollo o ternera magra (150 g) y verduras."],
+    ["🥪 Merienda", "Yogur griego con un puñado de frutos secos, o batido de leche con fruta."],
+    ["🌙 Cena", "Salmón o merluza al horno con patata cocida y ensalada con aceite de oliva."]
+  ];
+  return [
+    ["🌅 Desayuno", "Avena (80 g) con leche entera, plátano, miel y crema de cacahuete + 2 huevos revueltos."],
+    ["🍎 Media mañana", "Bocadillo de atún o pavo con aguacate y un zumo o fruta."],
+    ["🍽️ Comida", "Pasta o arroz (100-120 g en seco) con carne magra o pollo (180 g), verduras y aceite de oliva."],
+    ["🥪 Merienda", "Batido: leche, avena, plátano y crema de cacahuete. O yogur griego con granola."],
+    ["🌙 Cena", "Salmón con patata o boniato al horno y ensalada. De postre, yogur con nueces."]
+  ];
+}
+
+function renderDieta(p) {
+  const cont = $("#dieta-content");
+  if (!p) {
+    cont.innerHTML = `<div class="card center-msg"><div class="big">🥗</div>
+      <p>Necesito tu edad, peso y estatura para calcular tu dieta.</p>
+      <button class="primary" onclick="showView('perfil')">Completar mi perfil</button></div>`;
+    return;
+  }
+  const d = calcDieta(p);
+  const [cat, color] = imcCategoria(d.imc);
+  const pos = Math.min(97, Math.max(3, ((d.imc - 14) / 21) * 100)); // escala visual 14-35
+  const objetivoTxt = { perder: "perder grasa", mantener: "mantenerte en forma", ganar: "ganar músculo" }[p.objetivo];
+
+  let html = "";
+  if (d.menor) {
+    html += `<div class="notice">⚠️ Como tienes menos de 18 años y estás creciendo, tu plan no incluye recortes de calorías.
+    Lo importante a tu edad es comer variado, suficiente y entrenar bien. Consulta con tu médico o pediatra antes de hacer cambios grandes en tu alimentación.</div>`;
+  }
+
+  html += `<div class="card">
+    <h2>📊 Tus números${p.nombre ? ", " + p.nombre : ""}</h2>
+    <div class="stats">
+      <div class="stat"><div class="v">${d.imc.toFixed(1)}</div><div class="l">IMC · <span style="color:${color}">${cat}</span></div></div>
+      <div class="stat"><div class="v">${d.kcal}</div><div class="l">kcal/día recomendadas</div></div>
+      <div class="stat"><div class="v">${d.tmb}</div><div class="l">Metabolismo basal (kcal)</div></div>
+      <div class="stat"><div class="v">${d.tdee}</div><div class="l">Gasto diario total (kcal)</div></div>
+    </div>
+    <div class="imc-bar"><div class="imc-dot" style="left:${pos}%"></div></div>
+    <p class="muted" style="margin-top:10px">Calorías ajustadas a tu objetivo: <b style="color:#67e8f9">${objetivoTxt}</b>.</p>
+  </div>`;
+
+  html += `<div class="card">
+    <h2>🍗 Macros diarios</h2>
+    <div class="macros">
+      <div class="macro m-p"><b>${d.prot} g</b>Proteína</div>
+      <div class="macro m-c"><b>${d.carbs} g</b>Carbohidratos</div>
+      <div class="macro m-g"><b>${d.grasa} g</b>Grasas</div>
+    </div>
+    <p class="muted" style="margin-top:10px">La proteína (pollo, pescado, huevos, legumbres, lácteos) es clave para recuperar el músculo después de entrenar.</p>
+  </div>`;
+
+  const menu = menuEjemplo(d.kcal).map(m => `<div class="meal"><b>${m[0]}</b><p>${m[1]}</p></div>`).join("");
+  html += `<div class="card">
+    <h2>🥘 Menú de ejemplo (~${d.kcal} kcal)</h2>
+    ${menu}
+    <p class="muted" style="margin-top:10px">💧 Bebe 1,5-2 litros de agua al día. Evita refrescos azucarados y ultraprocesados a diario: mejor dejarlos para ocasiones puntuales.</p>
+  </div>`;
+
+  html += `<footer>Estos cálculos son orientativos y no sustituyen el consejo de un médico o nutricionista.</footer>`;
+  cont.innerHTML = html;
+}
+
+/* ================= NAVEGACIÓN ================= */
+function showView(name) {
+  document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+  document.querySelectorAll("nav.tabs button").forEach(b => b.classList.toggle("active", b.dataset.view === name));
+  $("#view-" + name).classList.add("active");
+  window.scrollTo({ top: 0 });
+}
+document.querySelectorAll("nav.tabs button").forEach(b =>
+  b.addEventListener("click", () => showView(b.dataset.view)));
+
+function render() {
+  const p = loadProfile();
+  fillForm(p);
+  renderRutina(p);
+  renderDieta(p);
+}
+render();
+showView(loadProfile() ? "rutina" : "perfil");
+
+/* ================= PWA ================= */
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+}
+let deferredPrompt = null;
+window.addEventListener("beforeinstallprompt", e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  $("#installBtn").style.display = "block";
+});
+$("#installBtn").addEventListener("click", async () => {
+  if (!deferredPrompt) return;
+  deferredPrompt.prompt();
+  await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  $("#installBtn").style.display = "none";
+});
+</script>
+</body>
+</html>
