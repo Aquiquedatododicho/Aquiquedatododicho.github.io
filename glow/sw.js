@@ -1,4 +1,4 @@
-const CACHE = "glowup-v2";
+const CACHE = "glowup-v3";
 const ASSETS = ["./", "index.html", "manifest.json", "icon-192.png", "icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -53,11 +53,11 @@ async function kvGet(key) {
 }
 
 const DAILY_MSGS = [
-  "💪 Tu rutina de hoy te espera. Cada día suma para definir tu rostro.",
-  "🔥 Constancia > intensidad. Haz tu rutina facial y tu cardio de hoy.",
-  "💧 Recuerda: agua, postura y mewing. Pequeños hábitos, gran cambio.",
-  "⏳ 2 minutos de ejercicios faciales hoy te acercan a tu potencial.",
-  "🌟 No falles hoy. Marca tu rutina completada en GlowUp."
+  "Tu rutina de hoy te espera. Cada día suma para definir tu rostro.",
+  "Constancia sobre intensidad. Haz tu rutina facial y tu cardio de hoy.",
+  "Recuerda: agua, postura y mewing. Pequeños hábitos, gran cambio.",
+  "2 minutos de ejercicios faciales hoy te acercan a tu potencial.",
+  "No falles hoy. Marca tu rutina completada en GlowUp."
 ];
 
 async function showDaily() {
@@ -69,7 +69,7 @@ async function showDaily() {
 
   let title, body;
   if (days >= 7) {
-    title = `📸 Foto semanal, ¡toca revisión${name}!`;
+    title = `Foto semanal, toca revisión${name}`;
     body = "Ha pasado una semana. Hazte la foto para ver tu progreso y actualizar tu puntuación.";
   } else {
     title = `GlowUp — Rutina de hoy${name}`;
