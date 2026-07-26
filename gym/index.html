@@ -55,6 +55,7 @@
     }
     .card > .micro { display: block; margin-bottom: 14px; }
     .mutedtext { color: var(--muted); font-size: 0.86rem; }
+    .hint { color: var(--muted); font-size: 0.76rem; margin: -6px 0 12px; }
     a { color: var(--accent); }
 
     .view { display: none; }
@@ -96,15 +97,24 @@
     .day .body { display: none; padding: 0 0 14px 36px; }
     .day.open .body { display: block; }
     .ex {
-      display: flex; justify-content: space-between; align-items: baseline; gap: 12px;
-      padding: 8px 0;
+      display: flex; justify-content: space-between; align-items: center; gap: 10px;
+      padding: 7px 0;
     }
-    .ex .n { font-size: 0.88rem; }
+    .ex .n { font-size: 0.88rem; min-width: 0; }
     .ex .n small { display: block; color: var(--muted); font-size: 0.74rem; }
+    .ex .exr { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .ex .sr {
       color: var(--accent); font-size: 0.82rem; font-weight: 500;
       white-space: nowrap; font-variant-numeric: tabular-nums;
     }
+    .swap {
+      background: none; border: 1px solid var(--line); border-radius: 9px;
+      width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; color: var(--muted); flex-shrink: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .swap svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+    .swap:active { color: var(--accent); border-color: var(--accent); }
 
     /* ---- dieta ---- */
     .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 22px 16px; }
@@ -130,9 +140,7 @@
     .macro b em { font-style: normal; font-size: 0.75rem; color: var(--muted); font-weight: 500; }
     .macro span { font-size: 0.68rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
 
-    .chips {
-      display: flex; gap: 6px; margin-bottom: 16px;
-    }
+    .chips { display: flex; gap: 6px; margin-bottom: 16px; }
     .chip {
       flex: 1; padding: 8px 0; border-radius: 10px; border: 1px solid var(--line);
       background: none; color: var(--muted); font-family: inherit; font-size: 0.74rem;
@@ -140,6 +148,9 @@
       -webkit-tap-highlight-color: transparent;
     }
     .chip.active { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+    .chips.wrap { flex-wrap: wrap; margin-bottom: 0; }
+    .chips.wrap .chip { flex: 0 0 auto; padding: 8px 13px; }
+
     .meal { padding: 13px 0; border-bottom: 1px solid var(--line); }
     .meal:last-of-type { border-bottom: none; padding-bottom: 4px; }
     .meal b {
@@ -280,6 +291,9 @@
             <option value="4">4 días</option>
             <option value="5">5 días</option>
           </select>
+          <label>Máquinas y material de tu gimnasio</label>
+          <p class="hint" style="margin:2px 0 10px">Desmarca lo que no tengas: los ejercicios se adaptarán solos.</p>
+          <div class="chips wrap" id="equipoChips"></div>
           <button type="submit" class="primary">Guardar y generar plan</button>
         </form>
         <button id="installBtn" class="ghost">Instalar la app en el móvil</button>
@@ -314,8 +328,46 @@ function loadProfile() {
 }
 function saveProfile(p) { localStorage.setItem(KEY, JSON.stringify(p)); }
 
+/* ================= EQUIPO (material del gimnasio) ================= */
+const EQUIPO = [
+  ["barra", "Barra y discos"],
+  ["mancuernas", "Mancuernas"],
+  ["banco", "Banco"],
+  ["polea", "Polea / jalón"],
+  ["prensa", "Prensa de piernas"],
+  ["maqFemoral", "Máq. femoral"],
+  ["maqCuadriceps", "Máq. cuádriceps"],
+  ["multipower", "Multipower"],
+  ["dominadas", "Barra de dominadas"],
+  ["paralelas", "Paralelas"]
+];
+
+let tempEquipo = new Set(EQUIPO.map(e => e[0])); // antes de guardar el perfil
+
+function equipoSet(p) {
+  if (p && Array.isArray(p.equipo)) return new Set(p.equipo);
+  return tempEquipo;
+}
+
+function renderEquipo(p) {
+  const eq = equipoSet(p);
+  $("#equipoChips").innerHTML = EQUIPO.map(([k, nombre]) =>
+    `<button type="button" class="chip${eq.has(k) ? " active" : ""}" onclick="togEq('${k}')">${nombre}</button>`
+  ).join("");
+}
+
+window.togEq = k => {
+  const p = loadProfile();
+  const eq = equipoSet(p);
+  eq.has(k) ? eq.delete(k) : eq.add(k);
+  if (p) { p.equipo = [...eq]; saveProfile(p); }
+  else tempEquipo = eq;
+  render();
+};
+
 $("#perfilForm").addEventListener("submit", e => {
   e.preventDefault();
+  const anterior = loadProfile();
   const p = {
     nombre: $("#nombre").value.trim(),
     edad: +$("#edad").value,
@@ -324,7 +376,9 @@ $("#perfilForm").addEventListener("submit", e => {
     altura: +$("#altura").value,
     actividad: +$("#actividad").value,
     objetivo: $("#objetivo").value,
-    dias: +$("#dias").value
+    dias: +$("#dias").value,
+    equipo: [...equipoSet(anterior)],
+    cambios: (anterior && anterior.cambios) || {}
   };
   saveProfile(p);
   render();
@@ -340,108 +394,173 @@ function fillForm(p) {
   $("#dias").value = p.dias;
 }
 
-/* ================= RUTINAS ================= */
-const RUTINAS = {
+/* ================= EJERCICIOS =================
+   Cada grupo de movimiento tiene varias alternativas:
+   [nombre, músculo, series, material necesario]
+   La última alternativa nunca necesita material (peso corporal). */
+const POOLS = {
+  empujeH: [
+    ["Press de banca", "Pecho", "4 × {R}", ["barra", "banco"]],
+    ["Press plano con mancuernas", "Pecho", "4 × {R}", ["mancuernas", "banco"]],
+    ["Press en multipower", "Pecho", "4 × {R}", ["multipower", "banco"]],
+    ["Flexiones", "Pecho", "4 × máx.", []]
+  ],
+  empujeIncl: [
+    ["Press inclinado con mancuernas", "Pecho superior", "3 × {R}", ["mancuernas", "banco"]],
+    ["Press inclinado con barra", "Pecho superior", "3 × {R}", ["barra", "banco"]],
+    ["Flexiones con pies elevados", "Pecho superior", "3 × máx.", []]
+  ],
+  aperturas: [
+    ["Aperturas en polea", "Pecho", "3 × {R}", ["polea"]],
+    ["Aperturas con mancuernas", "Pecho", "3 × {R}", ["mancuernas", "banco"]],
+    ["Flexiones abiertas", "Pecho", "3 × máx.", []]
+  ],
+  jalon: [
+    ["Jalón al pecho", "Dorsal", "4 × {R}", ["polea"]],
+    ["Dominadas", "Dorsal", "4 × máx.", ["dominadas"]],
+    ["Remo invertido", "Dorsal", "4 × máx.", []]
+  ],
+  remoH: [
+    ["Remo con barra", "Espalda media", "4 × {R}", ["barra"]],
+    ["Remo con mancuerna a una mano", "Espalda", "4 × {R}", ["mancuernas", "banco"]],
+    ["Remo en polea baja", "Espalda", "4 × {R}", ["polea"]],
+    ["Remo invertido", "Espalda", "4 × máx.", []]
+  ],
+  hombroPress: [
+    ["Press militar con mancuernas", "Hombros", "3 × {R}", ["mancuernas"]],
+    ["Press militar con barra", "Hombros", "3 × {R}", ["barra"]],
+    ["Flexiones en pica", "Hombros", "3 × máx.", []]
+  ],
+  lateral: [
+    ["Elevaciones laterales", "Hombro lateral", "3 × {R}", ["mancuernas"]],
+    ["Elevaciones laterales en polea", "Hombro lateral", "3 × {R}", ["polea"]],
+    ["Elevaciones con botellas o gomas", "Hombro lateral", "3 × {R}", []]
+  ],
+  posterior: [
+    ["Face pull", "Hombro posterior", "3 × {R}", ["polea"]],
+    ["Pájaros con mancuernas", "Hombro posterior", "3 × {R}", ["mancuernas"]],
+    ["Pájaros tumbado sin peso", "Hombro posterior", "3 × 15", []]
+  ],
+  biceps: [
+    ["Curl de bíceps con mancuernas", "Bíceps", "3 × {R}", ["mancuernas"]],
+    ["Curl con barra", "Bíceps", "3 × {R}", ["barra"]],
+    ["Curl en polea", "Bíceps", "3 × {R}", ["polea"]],
+    ["Dominadas supinas", "Bíceps", "3 × máx.", ["dominadas"]],
+    ["Curl con gomas o mochila", "Bíceps", "3 × {R}", []]
+  ],
+  triceps: [
+    ["Extensión de tríceps en polea", "Tríceps", "3 × {R}", ["polea"]],
+    ["Press francés con mancuernas", "Tríceps", "3 × {R}", ["mancuernas", "banco"]],
+    ["Fondos en paralelas", "Tríceps", "3 × {R}", ["paralelas"]],
+    ["Fondos en banco", "Tríceps", "3 × {R}", ["banco"]],
+    ["Flexiones diamante", "Tríceps", "3 × máx.", []]
+  ],
+  sentadilla: [
+    ["Sentadilla con barra", "Cuádriceps y glúteo", "4 × {R}", ["barra"]],
+    ["Sentadilla goblet con mancuerna", "Cuádriceps y glúteo", "4 × {R}", ["mancuernas"]],
+    ["Sentadilla en multipower", "Cuádriceps y glúteo", "4 × {R}", ["multipower"]],
+    ["Sentadilla con peso corporal", "Piernas", "4 × 15-20", []]
+  ],
+  bisagra: [
+    ["Peso muerto rumano con barra", "Femoral y glúteo", "4 × {R}", ["barra"]],
+    ["Peso muerto rumano con mancuernas", "Femoral y glúteo", "4 × {R}", ["mancuernas"]],
+    ["Buenos días sin peso", "Femoral y espalda baja", "4 × 15", []]
+  ],
+  prensa: [
+    ["Prensa de piernas", "Piernas", "3 × {R}", ["prensa"]],
+    ["Zancadas con mancuernas", "Piernas y glúteo", "3 × {R} / pierna", ["mancuernas"]],
+    ["Zancadas sin peso", "Piernas", "3 × 15 / pierna", []]
+  ],
+  femoral: [
+    ["Curl femoral en máquina", "Femoral", "3 × {R}", ["maqFemoral"]],
+    ["Peso muerto rumano a una pierna", "Femoral", "3 × {R} / pierna", ["mancuernas"]],
+    ["Curl nórdico asistido", "Femoral", "3 × 8-10", []]
+  ],
+  cuadriceps: [
+    ["Extensión de cuádriceps", "Cuádriceps", "3 × {R}", ["maqCuadriceps"]],
+    ["Sentadilla búlgara", "Cuádriceps y glúteo", "3 × {R} / pierna", ["mancuernas", "banco"]],
+    ["Sentadilla sissy", "Cuádriceps", "3 × 10-12", []]
+  ],
+  gluteo: [
+    ["Hip thrust con barra", "Glúteo", "4 × {R}", ["barra", "banco"]],
+    ["Hip thrust con mancuerna", "Glúteo", "4 × {R}", ["mancuernas", "banco"]],
+    ["Puente de glúteo", "Glúteo", "4 × 15-20", []]
+  ],
+  gemelo: [
+    ["Elevación de gemelos en prensa", "Gemelos", "4 × 15-20", ["prensa"]],
+    ["Elevación de gemelos con mancuerna", "Gemelos", "4 × 15-20", ["mancuernas"]],
+    ["Elevación de gemelos a una pierna", "Gemelos", "4 × 12-15 / pierna", []]
+  ],
+  core: [
+    ["Crunch en polea", "Core", "3 × 15-20", ["polea"]],
+    ["Elevaciones de piernas colgado", "Abdomen", "3 × 10-15", ["dominadas"]],
+    ["Plancha abdominal", "Core", "3 × 30-45 s", []]
+  ]
+};
+
+/* Estructura de cada sesión: qué grupos de movimiento entrena */
+const PLANES = {
   3: [
-    { nombre: "Full Body A", grupo: "Cuerpo completo", ejercicios: [
-      ["Sentadilla con barra o mancuernas", "Piernas y glúteo", "4 × {R}"],
-      ["Press de banca (o flexiones)", "Pecho, hombro y tríceps", "4 × {R}"],
-      ["Remo con barra o mancuerna", "Espalda", "4 × {R}"],
-      ["Press militar con mancuernas", "Hombros", "3 × {R}"],
-      ["Plancha abdominal", "Core", "3 × 30-45 s"]
-    ]},
-    { nombre: "Full Body B", grupo: "Cuerpo completo", ejercicios: [
-      ["Peso muerto rumano", "Femoral, glúteo y espalda baja", "4 × {R}"],
-      ["Jalón al pecho (o dominadas asistidas)", "Espalda y bíceps", "4 × {R}"],
-      ["Press inclinado con mancuernas", "Pecho superior", "3 × {R}"],
-      ["Zancadas caminando", "Piernas", "3 × {R} / pierna"],
-      ["Curl de bíceps con mancuernas", "Bíceps", "3 × {R}"]
-    ]},
-    { nombre: "Full Body C", grupo: "Cuerpo completo", ejercicios: [
-      ["Prensa de piernas", "Cuádriceps y glúteo", "4 × {R}"],
-      ["Fondos en paralelas (o en banco)", "Pecho y tríceps", "3 × {R}"],
-      ["Remo en polea baja", "Espalda", "4 × {R}"],
-      ["Elevaciones laterales", "Hombro lateral", "3 × {R}"],
-      ["Crunch en polea o abdominales", "Core", "3 × 15-20"]
-    ]}
+    ["Full Body A", "Cuerpo completo", ["sentadilla", "empujeH", "remoH", "hombroPress", "core"]],
+    ["Full Body B", "Cuerpo completo", ["bisagra", "jalon", "empujeIncl", "prensa", "biceps"]],
+    ["Full Body C", "Cuerpo completo", ["prensa", "triceps", "remoH", "lateral", "core"]]
   ],
   4: [
-    { nombre: "Torso A", grupo: "Pecho · Espalda · Hombro", ejercicios: [
-      ["Press de banca", "Pecho", "4 × {R}"],
-      ["Remo con barra", "Espalda", "4 × {R}"],
-      ["Press militar", "Hombros", "3 × {R}"],
-      ["Jalón al pecho", "Dorsal", "3 × {R}"],
-      ["Curl de bíceps + extensión de tríceps", "Brazos, superserie", "3 × {R}"]
-    ]},
-    { nombre: "Pierna A", grupo: "Piernas y core", ejercicios: [
-      ["Sentadilla con barra", "Cuádriceps y glúteo", "4 × {R}"],
-      ["Peso muerto rumano", "Femoral y glúteo", "4 × {R}"],
-      ["Prensa de piernas", "Piernas", "3 × {R}"],
-      ["Elevación de gemelos", "Gemelos", "4 × 15-20"],
-      ["Plancha abdominal", "Core", "3 × 30-45 s"]
-    ]},
-    { nombre: "Torso B", grupo: "Pecho · Espalda · Hombro", ejercicios: [
-      ["Press inclinado con mancuernas", "Pecho superior", "4 × {R}"],
-      ["Dominadas (o jalón agarre estrecho)", "Espalda", "4 × {R}"],
-      ["Elevaciones laterales", "Hombro lateral", "4 × {R}"],
-      ["Remo en polea baja", "Espalda media", "3 × {R}"],
-      ["Curl martillo + fondos en banco", "Brazos, superserie", "3 × {R}"]
-    ]},
-    { nombre: "Pierna B", grupo: "Piernas y core", ejercicios: [
-      ["Zancadas con mancuernas", "Piernas y glúteo", "4 × {R} / pierna"],
-      ["Hip thrust", "Glúteo", "4 × {R}"],
-      ["Curl femoral en máquina", "Femoral", "3 × {R}"],
-      ["Extensión de cuádriceps", "Cuádriceps", "3 × {R}"],
-      ["Crunch abdominal", "Core", "3 × 15-20"]
-    ]}
+    ["Torso A", "Pecho · Espalda · Hombro", ["empujeH", "remoH", "hombroPress", "jalon", "triceps"]],
+    ["Pierna A", "Piernas y core", ["sentadilla", "bisagra", "prensa", "gemelo", "core"]],
+    ["Torso B", "Pecho · Espalda · Hombro", ["empujeIncl", "jalon", "lateral", "remoH", "biceps"]],
+    ["Pierna B", "Piernas y core", ["gluteo", "femoral", "cuadriceps", "prensa", "core"]]
   ],
   5: [
-    { nombre: "Empuje · Push", grupo: "Pecho · Hombro · Tríceps", ejercicios: [
-      ["Press de banca", "Pecho", "4 × {R}"],
-      ["Press militar con mancuernas", "Hombros", "4 × {R}"],
-      ["Press inclinado", "Pecho superior", "3 × {R}"],
-      ["Elevaciones laterales", "Hombro lateral", "3 × {R}"],
-      ["Extensión de tríceps en polea", "Tríceps", "3 × {R}"]
-    ]},
-    { nombre: "Tirón · Pull", grupo: "Espalda · Bíceps", ejercicios: [
-      ["Dominadas (o jalón al pecho)", "Dorsal", "4 × {R}"],
-      ["Remo con barra", "Espalda media", "4 × {R}"],
-      ["Remo en polea baja", "Espalda", "3 × {R}"],
-      ["Face pull", "Hombro posterior", "3 × {R}"],
-      ["Curl de bíceps con barra", "Bíceps", "3 × {R}"]
-    ]},
-    { nombre: "Pierna", grupo: "Piernas y core", ejercicios: [
-      ["Sentadilla con barra", "Cuádriceps y glúteo", "4 × {R}"],
-      ["Peso muerto rumano", "Femoral", "4 × {R}"],
-      ["Prensa de piernas", "Piernas", "3 × {R}"],
-      ["Elevación de gemelos", "Gemelos", "4 × 15-20"],
-      ["Plancha abdominal", "Core", "3 × 30-45 s"]
-    ]},
-    { nombre: "Torso", grupo: "Pecho y espalda", ejercicios: [
-      ["Press inclinado con mancuernas", "Pecho superior", "4 × {R}"],
-      ["Remo con mancuerna a una mano", "Espalda", "4 × {R}"],
-      ["Aperturas en polea o mancuernas", "Pecho", "3 × {R}"],
-      ["Jalón al pecho agarre estrecho", "Dorsal", "3 × {R}"],
-      ["Curl martillo + press francés", "Brazos, superserie", "3 × {R}"]
-    ]},
-    { nombre: "Pierna y Core", grupo: "Piernas, glúteo y abdomen", ejercicios: [
-      ["Hip thrust", "Glúteo", "4 × {R}"],
-      ["Zancadas caminando", "Piernas", "3 × {R} / pierna"],
-      ["Curl femoral", "Femoral", "3 × {R}"],
-      ["Extensión de cuádriceps", "Cuádriceps", "3 × {R}"],
-      ["Elevaciones de piernas colgado", "Abdomen", "3 × 10-15"]
-    ]}
+    ["Empuje · Push", "Pecho · Hombro · Tríceps", ["empujeH", "hombroPress", "empujeIncl", "lateral", "triceps"]],
+    ["Tirón · Pull", "Espalda · Bíceps", ["jalon", "remoH", "posterior", "biceps", "core"]],
+    ["Pierna", "Piernas y core", ["sentadilla", "bisagra", "prensa", "gemelo", "core"]],
+    ["Torso", "Pecho y espalda", ["empujeIncl", "remoH", "aperturas", "jalon", "triceps"]],
+    ["Pierna y Core", "Piernas, glúteo y abdomen", ["gluteo", "femoral", "cuadriceps", "gemelo", "core"]]
   ]
 };
 
 const DIAS_SEMANA = { 3: [1, 3, 5], 4: [1, 2, 4, 5], 5: [1, 2, 3, 4, 5] }; // 1=lunes
 const NOMBRE_DIA = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const SEMANA_NUM = Math.floor(Date.now() / 604800000); // nº de semana, cambia cada lunes-domingo
 
 function esquema(objetivo) {
   if (objetivo === "perder")  return { reps: "12-15", descanso: "45-60 s", nota: "Ritmo alto y descansos cortos para quemar más. Añade 15-20 min de cardio al acabar si puedes." };
   if (objetivo === "ganar")   return { reps: "8-12",  descanso: "60-90 s", nota: "Sube el peso poco a poco cada semana (sobrecarga progresiva) manteniendo buena técnica." };
   return { reps: "10-12", descanso: "60 s", nota: "Constancia ante todo: mejor entrenar siempre que entrenar mucho una semana y nada la siguiente." };
 }
+
+function alternativas(poolKey, eq) {
+  const c = POOLS[poolKey].filter(e => e[3].every(r => eq.has(r)));
+  return c.length ? c : [POOLS[poolKey][POOLS[poolKey].length - 1]];
+}
+
+// Ejercicio elegido para un hueco: el del usuario si lo cambió; si no, rota cada semana
+function ejercicioDe(p, dayIdx, slotIdx, poolKey) {
+  const avail = alternativas(poolKey, equipoSet(p));
+  const ov = (p.cambios || {})[p.dias + "-" + dayIdx + "-" + slotIdx];
+  if (ov) {
+    const f = avail.find(e => e[0] === ov);
+    if (f) return f;
+  }
+  return avail[(SEMANA_NUM + dayIdx + slotIdx) % avail.length];
+}
+
+window.swapEx = (dayIdx, slotIdx) => {
+  const p = loadProfile();
+  if (!p) return;
+  const poolKey = PLANES[p.dias][dayIdx][2][slotIdx];
+  const avail = alternativas(poolKey, equipoSet(p));
+  if (avail.length < 2) return;
+  const actual = ejercicioDe(p, dayIdx, slotIdx, poolKey);
+  const i = avail.findIndex(e => e[0] === actual[0]);
+  p.cambios = p.cambios || {};
+  p.cambios[p.dias + "-" + dayIdx + "-" + slotIdx] = avail[(i + 1) % avail.length][0];
+  saveProfile(p);
+  render();
+};
+
+const SWAP_SVG = '<svg viewBox="0 0 24 24"><path d="M7 4 4 7l3 3M4 7h11a5 5 0 0 1 5 5M17 20l3-3-3-3M20 17H9a5 5 0 0 1-5-5"/></svg>';
 
 function renderRutina(p) {
   const cont = $("#rutina-content");
@@ -451,33 +570,41 @@ function renderRutina(p) {
       <button class="primary" onclick="showView('perfil')">Completar mi perfil</button></div>`;
     return;
   }
-  const plan = RUTINAS[p.dias];
+  const plan = PLANES[p.dias];
   const esq = esquema(p.objetivo);
   const diasGym = DIAS_SEMANA[p.dias];
   const hoy = new Date().getDay(); // 0=domingo
   const idxHoy = diasGym.indexOf(hoy); // -1 si hoy es descanso
+  const abiertos = new Set([...document.querySelectorAll(".day.open")].map(d => d.dataset.i));
 
   let html = `<div class="card hero">
     <span class="micro">Hoy · ${NOMBRE_DIA[hoy]}</span>
-    <h2>${idxHoy >= 0 ? plan[idxHoy].nombre : "Descanso"}</h2>
-    <p class="sub">${idxHoy >= 0 ? plan[idxHoy].grupo : "Recuperarse también es entrenar."}</p>
+    <h2>${idxHoy >= 0 ? plan[idxHoy][0] : "Descanso"}</h2>
+    <p class="sub">${idxHoy >= 0 ? plan[idxHoy][1] : "Recuperarse también es entrenar."}</p>
     <div class="meta">
       <div><b>${esq.descanso}</b><span>Descanso entre series</span></div>
       <div><b>5-10 min</b><span>Calentamiento previo</span></div>
     </div>
   </div>`;
 
-  html += `<div class="card"><span class="micro">Tu semana · ${p.dias} días</span>`;
+  html += `<div class="card"><span class="micro">Tu semana · ${p.dias} días · rotación semanal</span>
+    <p class="hint">Los ejercicios cambian cada semana para variar. Toca ⇆ para elegir tú otra alternativa (según el material de tu gimnasio).</p>`;
   plan.forEach((dia, i) => {
     const diaSem = diasGym[i];
     const esHoy = diaSem === hoy;
-    const ejercicios = dia.ejercicios.map(e =>
-      `<div class="ex"><div class="n">${e[0]}<small>${e[1]}</small></div><div class="sr">${e[2].replace("{R}", esq.reps)}</div></div>`
-    ).join("");
-    html += `<div class="day${esHoy ? " today open" : ""}">
+    const abierto = esHoy || abiertos.has(String(i));
+    const ejercicios = dia[2].map((poolKey, j) => {
+      const e = ejercicioDe(p, i, j, poolKey);
+      return `<div class="ex">
+        <div class="n">${e[0]}<small>${e[1]}</small></div>
+        <div class="exr"><span class="sr">${e[2].replace("{R}", esq.reps)}</span>
+        <button class="swap" onclick="swapEx(${i},${j})" aria-label="Cambiar ejercicio">${SWAP_SVG}</button></div>
+      </div>`;
+    }).join("");
+    html += `<div class="day${esHoy ? " today" : ""}${abierto ? " open" : ""}" data-i="${i}">
       <div class="head" onclick="this.parentElement.classList.toggle('open')">
         <span class="num">${String(i + 1).padStart(2, "0")}</span>
-        <div class="info"><strong>${dia.nombre}</strong><small>${NOMBRE_DIA[diaSem]} · ${dia.grupo}</small></div>
+        <div class="info"><strong>${dia[0]}</strong><small>${NOMBRE_DIA[diaSem]} · ${dia[1]}</small></div>
         ${esHoy ? '<span class="mark">HOY</span>' : ""}
         <span class="chev"></span>
       </div>
@@ -656,6 +783,7 @@ document.querySelectorAll("nav.tabs button").forEach(b =>
 function render() {
   const p = loadProfile();
   fillForm(p);
+  renderEquipo(p);
   renderRutina(p);
   renderDieta(p);
 }
