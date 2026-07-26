@@ -1,0 +1,17 @@
+{
+  "name": "GlowUp — Análisis facial y rutina",
+  "short_name": "GlowUp",
+  "description": "Analiza tu cara con una foto, obtén tu puntuación y potencial, una rutina diaria para definir el rostro y un seguimiento semanal con recordatorios.",
+  "lang": "es",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0d11",
+  "theme_color": "#0b0d11",
+  "categories": ["health", "lifestyle"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
