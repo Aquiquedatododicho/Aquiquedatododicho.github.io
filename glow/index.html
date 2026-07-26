@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0d11" />
+  <meta name="description" content="Analiza tu cara con una foto: puntuación, potencial y una rutina diaria para definir el rostro, con recordatorios y seguimiento semanal." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <title>GlowUp — Análisis facial y rutina</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #0b0d11;
+      --surface: #12151b;
+      --surface2: #171b23;
+      --line: #222834;
+      --txt: #e9edf2;
+      --muted: #8a93a2;
+      --accent: #5eead4;
+      --accent2: #3b82f6;
+      --accent-ink: #06211b;
+      --amber: #f0c983;
+      --red: #f08a8a;
+      --green: #6ee7a8;
+    }
+    html { -webkit-text-size-adjust: 100%; }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--txt);
+      min-height: 100vh;
+      line-height: 1.55;
+      padding-bottom: 92px;
+      font-size: 15px;
+    }
+    .container { max-width: 560px; margin: 0 auto; padding: 22px 18px 0; }
+
+    header.app { margin-bottom: 20px; display:flex; align-items:center; gap:12px; }
+    .brand-logo {
+      width: 44px; height: 44px; border-radius: 13px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display:flex; align-items:center; justify-content:center; font-size:22px;
+      box-shadow: 0 6px 18px rgba(59,130,246,.35);
+    }
+    header.app h1 { font-size: 1.2rem; font-weight: 700; letter-spacing: -0.02em; }
+    header.app h1 span { color: var(--accent); }
+    header.app p { color: var(--muted); font-size: 0.75rem; }
+
+    .micro { font-size:0.66rem; font-weight:700; text-transform:uppercase; letter-spacing:0.1em; color:var(--muted); }
+    .card {
+      background: var(--surface); border: 1px solid var(--line);
+      border-radius: 18px; padding: 20px; margin-bottom: 16px;
+    }
+    .card > .micro { display:block; margin-bottom:12px; }
+    .mutedtext { color: var(--muted); font-size: 0.85rem; }
+    .hint { color: var(--muted); font-size: 0.76rem; margin-top:6px; }
+    h2.sec { font-size: 1.02rem; font-weight:650; margin-bottom:4px; }
+    a { color: var(--accent); }
+
+    label.fld { display:block; margin-bottom:12px; }
+    label.fld span { display:block; font-size:0.78rem; color:var(--muted); margin-bottom:5px; }
+    input, select {
+      width:100%; background: var(--surface2); border:1px solid var(--line);
+      color: var(--txt); border-radius: 11px; padding: 12px 13px; font-size: 15px; font-family:inherit;
+    }
+    input:focus, select:focus { outline:none; border-color: var(--accent); }
+
+    button {
+      font-family:inherit; cursor:pointer; border:none; border-radius: 12px;
+      font-weight:650; font-size:15px; padding: 13px 16px; width:100%;
+    }
+    .btn-primary { background: linear-gradient(135deg, var(--accent), var(--accent2)); color: var(--accent-ink); }
+    .btn-ghost { background: var(--surface2); color: var(--txt); border:1px solid var(--line); }
+    .btn-row { display:flex; gap:10px; }
+    .btn-row button { width:auto; flex:1; }
+    button:active { transform: scale(.98); }
+    button:disabled { opacity:.5; }
+
+    /* score gauge */
+    .gauge { display:flex; align-items:center; gap:18px; }
+    .ring { position:relative; width:118px; height:118px; flex:none; }
+    .ring svg { transform: rotate(-90deg); }
+    .ring .num { position:absolute; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+    .ring .num b { font-size:1.9rem; font-weight:750; line-height:1; }
+    .ring .num small { font-size:0.62rem; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; }
+
+    .bar { height:8px; background: var(--surface2); border-radius:99px; overflow:hidden; margin-top:6px; }
+    .bar > i { display:block; height:100%; border-radius:99px; background: linear-gradient(90deg,var(--accent),var(--accent2)); }
+    .subrow { margin-bottom:12px; }
+    .subrow .top { display:flex; justify-content:space-between; font-size:0.84rem; }
+    .subrow .top b { font-variant-numeric: tabular-nums; }
+
+    .pill { display:inline-block; padding:5px 11px; border-radius:99px; background:var(--surface2); border:1px solid var(--line); font-size:0.76rem; font-weight:600; margin:0 6px 6px 0; }
+    .pill.good { color:var(--green); border-color:#1f3a2c; }
+    .pill.warn { color:var(--amber); border-color:#3a331f; }
+
+    ul.tips { list-style:none; }
+    ul.tips li { position:relative; padding:9px 0 9px 26px; border-top:1px solid var(--line); font-size:0.9rem; }
+    ul.tips li:first-child { border-top:none; }
+    ul.tips li::before { content:"→"; position:absolute; left:2px; color:var(--accent); font-weight:700; }
+
+    /* checklist */
+    .task { display:flex; align-items:flex-start; gap:12px; padding:11px 0; border-top:1px solid var(--line); }
+    .task:first-child { border-top:none; }
+    .task input { width:22px; height:22px; flex:none; margin-top:1px; accent-color: var(--accent); }
+    .task .t { font-size:0.9rem; }
+    .task .t small { display:block; color:var(--muted); font-size:0.76rem; }
+    .task.done .t { text-decoration:line-through; color:var(--muted); }
+
+    .days { display:flex; gap:6px; overflow-x:auto; padding-bottom:6px; margin-bottom:12px; }
+    .days button { width:auto; flex:none; padding:8px 12px; font-size:0.8rem; background:var(--surface2); border:1px solid var(--line); color:var(--muted); }
+    .days button.active { background: var(--accent); color: var(--accent-ink); border-color:var(--accent); }
+
+    /* history */
+    .hist { display:flex; gap:12px; align-items:center; padding:11px 0; border-top:1px solid var(--line); }
+    .hist:first-child { border-top:none; }
+    .hist img { width:52px; height:52px; border-radius:11px; object-fit:cover; flex:none; background:var(--surface2); }
+    .hist .meta { flex:1; font-size:0.82rem; }
+    .hist .meta small { color:var(--muted); }
+    .hist .sc { font-weight:750; font-size:1.1rem; font-variant-numeric:tabular-nums; }
+
+    .preview-wrap { position:relative; border-radius:14px; overflow:hidden; margin-bottom:14px; background:var(--surface2); border:1px solid var(--line); }
+    .preview-wrap img { width:100%; display:block; }
+    .preview-wrap canvas { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; }
+    .loading { text-align:center; padding:20px; color:var(--muted); font-size:0.86rem; }
+    .spinner { width:26px; height:26px; border:3px solid var(--line); border-top-color:var(--accent); border-radius:50%; margin:0 auto 10px; animation:spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .banner { background: linear-gradient(135deg, rgba(94,234,212,.12), rgba(59,130,246,.12)); border:1px solid #24404a; border-radius:14px; padding:13px 15px; font-size:0.84rem; margin-bottom:14px; }
+    .banner b { color: var(--accent); }
+    .note { font-size:0.74rem; color:var(--muted); border-top:1px solid var(--line); margin-top:14px; padding-top:12px; }
+
+    /* bottom nav */
+    nav.tabs {
+      position:fixed; bottom:0; left:0; right:0; z-index:20;
+      background: rgba(11,13,17,.92); backdrop-filter: blur(12px);
+      border-top:1px solid var(--line);
+      display:flex; max-width:560px; margin:0 auto;
+      padding: 8px 6px calc(8px + env(safe-area-inset-bottom));
+    }
+    nav.tabs button {
+      flex:1; background:none; border:none; padding:6px 2px; color:var(--muted);
+      font-size:0.66rem; font-weight:600; display:flex; flex-direction:column; align-items:center; gap:3px;
+    }
+    nav.tabs button .ic { font-size:19px; line-height:1; }
+    nav.tabs button.active { color: var(--accent); }
+
+    .view { display:none; }
+    .view.active { display:block; animation: fade .25s ease; }
+    @keyframes fade { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform:none; } }
+
+    .kpi { display:flex; gap:10px; margin-top:14px; }
+    .kpi > div { flex:1; background:var(--surface2); border:1px solid var(--line); border-radius:13px; padding:12px; text-align:center; }
+    .kpi b { display:block; font-size:1.35rem; font-variant-numeric:tabular-nums; }
+    .kpi small { color:var(--muted); font-size:0.68rem; text-transform:uppercase; letter-spacing:.06em; }
+
+    .switch { display:flex; align-items:center; justify-content:space-between; padding:12px 0; border-top:1px solid var(--line); }
+    .switch:first-child { border-top:none; }
+    .switch .t { font-size:0.9rem; } .switch .t small { display:block; color:var(--muted); font-size:0.76rem; }
+    .toggle { width:auto!important; flex:none; padding:8px 14px!important; font-size:0.8rem!important; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header class="app">
+      <div class="brand-logo">✨</div>
+      <div>
+        <h1>Glow<span>Up</span></h1>
+        <p>Analiza tu cara · define tu rostro · sigue tu progreso</p>
+      </div>
+    </header>
+
+    <!-- ============ INICIO / ANÁLISIS ============ -->
+    <section class="view active" id="view-scan">
+      <div class="card" id="onboardCard">
+        <span class="micro">Empecemos</span>
+        <h2 class="sec">Tu perfil</h2>
+        <p class="mutedtext" style="margin-bottom:14px;">Para personalizar tu rutina y tu potencial.</p>
+        <label class="fld"><span>Tu nombre</span><input id="pName" placeholder="Ej. Carlos" /></label>
+        <div class="btn-row" style="margin-bottom:12px;">
+          <label class="fld" style="flex:1;margin:0;"><span>Edad</span><input id="pAge" type="number" min="10" max="80" placeholder="14" /></label>
+          <label class="fld" style="flex:1;margin:0;"><span>Objetivo principal</span>
+            <select id="pGoal">
+              <option value="round">Quitar forma redonda / grasa</option>
+              <option value="jaw">Definir mandíbula</option>
+              <option value="glow">Mejorar en general</option>
+            </select>
+          </label>
+        </div>
+        <button class="btn-primary" id="saveProfile">Guardar y continuar</button>
+      </div>
+
+      <div class="card" id="scanCard" style="display:none;">
+        <span class="micro">Análisis con IA</span>
+        <h2 class="sec">Analiza tu cara</h2>
+        <p class="mutedtext" style="margin-bottom:14px;">Haz o sube una foto <b>de frente</b>, cara centrada, buena luz y sin gafas. Todo se procesa <b>en tu móvil</b>: la foto no se sube a ningún sitio.</p>
+
+        <div id="previewBox"></div>
+
+        <div class="btn-row">
+          <button class="btn-primary" id="takeBtn">📷 Cámara</button>
+          <button class="btn-ghost" id="uploadBtn">🖼️ Galería</button>
+        </div>
+        <input type="file" id="fileInput" accept="image/*" capture="user" hidden />
+        <input type="file" id="fileInput2" accept="image/*" hidden />
+        <div id="scanStatus"></div>
+        <p class="note">GlowUp es una herramienta de <b>motivación y hábitos saludables</b>, no un juicio de tu valor. La puntuación es orientativa y se basa en proporciones geométricas del rostro. Consulta a un profesional para temas de salud.</p>
+      </div>
+
+      <div class="card" id="resultCard" style="display:none;">
+        <span class="micro">Resultado</span>
+        <div class="gauge">
+          <div class="ring">
+            <svg width="118" height="118" viewBox="0 0 118 118">
+              <circle cx="59" cy="59" r="52" fill="none" stroke="#222834" stroke-width="10"/>
+              <circle id="ringFill" cx="59" cy="59" r="52" fill="none" stroke="url(#g)" stroke-width="10" stroke-linecap="round" stroke-dasharray="327" stroke-dashoffset="327"/>
+              <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#5eead4"/><stop offset="1" stop-color="#3b82f6"/></linearGradient></defs>
+            </svg>
+            <div class="num"><b id="scoreNum">0</b><small>de 100</small></div>
+          </div>
+          <div style="flex:1;">
+            <div id="shapePills"></div>
+            <p class="mutedtext" id="shapeDesc"></p>
+          </div>
+        </div>
+
+        <div class="kpi">
+          <div><b id="potNum" style="color:var(--accent)">0</b><small>Potencial</small></div>
+          <div><b id="gapNum" style="color:var(--amber)">+0</b><small>Margen</small></div>
+        </div>
+
+        <div style="margin:20px 0 6px;"><span class="micro">Desglose</span></div>
+        <div id="subScores"></div>
+
+        <div style="margin:16px 0 8px;"><span class="micro">Qué mejorar</span></div>
+        <ul class="tips" id="tipsList"></ul>
+
+        <button class="btn-primary" id="goRoutine" style="margin-top:16px;">Ver mi rutina 💪</button>
+        <button class="btn-ghost" id="rescanBtn" style="margin-top:10px;">Analizar otra foto</button>
+      </div>
+    </section>
+
+    <!-- ============ RUTINA ============ -->
+    <section class="view" id="view-routine">
+      <div class="card">
+        <span class="micro">Tu plan</span>
+        <h2 class="sec">Rutina para definir el rostro</h2>
+        <p class="mutedtext" id="routineIntro" style="margin-bottom:14px;">Marca cada tarea al completarla. Vuelve cada día.</p>
+        <div class="days" id="daysBar"></div>
+        <div id="taskList"></div>
+        <div class="bar" style="margin-top:14px;"><i id="dayProg" style="width:0%"></i></div>
+        <p class="hint" id="dayProgTxt">0 de 0 completado hoy</p>
+      </div>
+      <div class="card">
+        <span class="micro">Por qué funciona</span>
+        <ul class="tips">
+          <li><b>Menos grasa facial:</b> la cara se afina cuando baja el % de grasa corporal. Cardio + déficit suave + menos sal/azúcar reducen la hinchazón y la redondez.</li>
+          <li><b>Mewing y postura:</b> lengua al paladar y barbilla metida tonifican la línea del cuello y la mandíbula con el tiempo.</li>
+          <li><b>Masetero:</b> ejercicios de mandíbula marcan el ángulo. Con moderación para no sobrecargar.</li>
+          <li><b>Sueño y agua:</b> 8 h y buena hidratación bajan la retención de líquidos (cara "hinchada").</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ============ PROGRESO ============ -->
+    <section class="view" id="view-progress">
+      <div class="card">
+        <span class="micro">Evolución</span>
+        <h2 class="sec">Tu progreso</h2>
+        <div id="weekBanner"></div>
+        <div id="chartBox" style="margin:8px 0 4px;"></div>
+        <div id="histList"></div>
+      </div>
+    </section>
+
+    <!-- ============ AJUSTES ============ -->
+    <section class="view" id="view-settings">
+      <div class="card">
+        <span class="micro">Recordatorios</span>
+        <h2 class="sec">Notificaciones diarias</h2>
+        <p class="mutedtext" style="margin-bottom:14px;">Te avisamos cada día para tu rutina y cada semana para la foto de seguimiento.</p>
+        <div class="switch">
+          <div class="t">Activar recordatorios<small id="notifState">Desactivados</small></div>
+          <button class="btn-primary toggle" id="notifBtn">Activar</button>
+        </div>
+        <label class="fld" style="margin-top:14px;"><span>Hora del recordatorio diario</span><input id="reminderHour" type="time" value="09:00" /></label>
+        <button class="btn-ghost" id="testNotif">Probar notificación</button>
+        <p class="hint" id="notifHelp"></p>
+      </div>
+      <div class="card">
+        <span class="micro">App</span>
+        <h2 class="sec">Instalar y datos</h2>
+        <button class="btn-primary" id="installBtn" style="margin-bottom:10px; display:none;">📲 Instalar en el móvil</button>
+        <p class="mutedtext" id="installHelp" style="margin-bottom:14px;">Para instalarla: abre el menú del navegador y pulsa <b>“Añadir a pantalla de inicio”</b>. Así recibirás las notificaciones aunque esté cerrada.</p>
+        <button class="btn-ghost" id="editProfile" style="margin-bottom:10px;">Editar mi perfil</button>
+        <button class="btn-ghost" id="resetBtn" style="color:var(--red)">Borrar todos mis datos</button>
+      </div>
+      <div class="card">
+        <p class="mutedtext" style="font-size:0.8rem;">Hecho por Carlos Romero Garrido · Tus fotos y datos se guardan solo en tu dispositivo. <br>Volver a <a href="../">la página principal</a>.</p>
+      </div>
+    </section>
+  </div>
+
+  <nav class="tabs">
+    <button data-view="scan" class="active"><span class="ic">📷</span>Analizar</button>
+    <button data-view="routine"><span class="ic">💪</span>Rutina</button>
+    <button data-view="progress"><span class="ic">📈</span>Progreso</button>
+    <button data-view="settings"><span class="ic">⚙️</span>Ajustes</button>
+  </nav>
+
+  <script type="module">
+  /* ================= IndexedDB ================= */
+  function idb(){return new Promise((res,rej)=>{const r=indexedDB.open("glowup",1);
+    r.onupgradeneeded=()=>{const db=r.result;
+      if(!db.objectStoreNames.contains("kv")) db.createObjectStore("kv");
+      if(!db.objectStoreNames.contains("checks")) db.createObjectStore("checks");};
+    r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error);});}
+  async function kvGet(k){const db=await idb();return new Promise(r=>{const t=db.transaction("kv","readonly").objectStore("kv").get(k);t.onsuccess=()=>r(t.result);t.onerror=()=>r(undefined);});}
+  async function kvSet(k,v){const db=await idb();return new Promise(r=>{const t=db.transaction("kv","readwrite");t.objectStore("kv").put(v,k);t.oncomplete=()=>r();});}
+  async function checksGet(d){const db=await idb();return new Promise(r=>{const t=db.transaction("checks","readonly").objectStore("checks").get(d);t.onsuccess=()=>r(t.result||{});t.onerror=()=>r({});});}
+  async function checksSet(d,v){const db=await idb();return new Promise(r=>{const t=db.transaction("checks","readwrite");t.objectStore("checks").put(v,d);t.oncomplete=()=>r();});}
+
+  const todayStr=()=>{const n=new Date();return n.getFullYear()+"-"+String(n.getMonth()+1).padStart(2,"0")+"-"+String(n.getDate()).padStart(2,"0");};
+
+  let profile=null, settings=null, history=[];
+
+  /* ================= Navegación ================= */
+  const views=document.querySelectorAll(".view");
+  const tabBtns=document.querySelectorAll("nav.tabs button");
+  function show(v){
+    views.forEach(s=>s.classList.toggle("active",s.id==="view-"+v));
+    tabBtns.forEach(b=>b.classList.toggle("active",b.dataset.view===v));
+    if(v==="routine") renderRoutine();
+    if(v==="progress") renderProgress();
+    window.scrollTo(0,0);
+  }
+  tabBtns.forEach(b=>b.onclick=()=>show(b.dataset.view));
+
+  /* ================= Perfil ================= */
+  const onboardCard=document.getElementById("onboardCard");
+  const scanCard=document.getElementById("scanCard");
+  document.getElementById("saveProfile").onclick=async()=>{
+    const name=document.getElementById("pName").value.trim();
+    const age=parseInt(document.getElementById("pAge").value)||14;
+    const goal=document.getElementById("pGoal").value;
+    profile={name,age,goal};
+    await kvSet("profile",profile);
+    onboardCard.style.display="none"; scanCard.style.display="block";
+  };
+  document.getElementById("editProfile").onclick=()=>{
+    if(profile){document.getElementById("pName").value=profile.name||"";
+      document.getElementById("pAge").value=profile.age||"";
+      document.getElementById("pGoal").value=profile.goal||"round";}
+    onboardCard.style.display="block"; scanCard.style.display="block"; show("scan");
+  };
+
+  /* ================= Carga de foto ================= */
+  const fileInput=document.getElementById("fileInput");
+  const fileInput2=document.getElementById("fileInput2");
+  document.getElementById("takeBtn").onclick=()=>fileInput.click();
+  document.getElementById("uploadBtn").onclick=()=>fileInput2.click();
+  fileInput.onchange=e=>handleFile(e.target.files[0]);
+  fileInput2.onchange=e=>handleFile(e.target.files[0]);
+  document.getElementById("rescanBtn").onclick=()=>{
+    document.getElementById("resultCard").style.display="none";
+    document.getElementById("previewBox").innerHTML="";
+    show("scan");
+  };
+  document.getElementById("goRoutine").onclick=()=>show("routine");
+
+  function handleFile(file){
+    if(!file) return;
+    const img=new Image();
+    img.onload=()=>analyze(img);
+    img.onerror=()=>setStatus("No se pudo leer la imagen. Prueba otra foto.",true);
+    img.src=URL.createObjectURL(file);
+    setStatus("");
+  }
+  const statusEl=document.getElementById("scanStatus");
+  function setStatus(html,err){statusEl.innerHTML=html?`<div class="loading" style="${err?'color:var(--red)':''}">${html}</div>`:"";}
+
+  /* ================= Motor de análisis (MediaPipe FaceLandmarker) ================= */
+  let landmarker=null, loadingModel=null;
+  async function getLandmarker(){
+    if(landmarker) return landmarker;
+    if(loadingModel) return loadingModel;
+    loadingModel=(async()=>{
+      const V="https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+      const {FaceLandmarker,FilesetResolver}=await import(V+"/vision_bundle.mjs");
+      const fileset=await FilesetResolver.forVisionTasks(V+"/wasm");
+      landmarker=await FaceLandmarker.createFromOptions(fileset,{
+        baseOptions:{modelAssetPath:"https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task"},
+        runningMode:"IMAGE", numFaces:1
+      });
+      return landmarker;
+    })();
+    return loadingModel;
+  }
+
+  function dist(a,b,W,H){return Math.hypot((a.x-b.x)*W,(a.y-b.y)*H);}
+
+  function computeMetrics(lm,W,H){
+    const P=i=>({x:lm[i].x,y:lm[i].y});
+    // anchos y alturas clave
+    const cheekW = dist(P(234),P(454),W,H);      // pómulos (bizigomático)
+    const jawW   = dist(P(172),P(397),W,H);      // mandíbula baja
+    const foreW  = dist(P(21),P(251),W,H);       // sienes / frente
+    const faceH  = dist(P(10),P(152),W,H);       // frente -> mentón
+    const len    = faceH/cheekW;                  // relación largo/ancho
+    const taper  = jawW/cheekW;                    // afilado mandíbula (bajo = V)
+    const round  = cheekW/faceH;                   // redondez (alto = redonda)
+
+    // tercios verticales
+    const t1=Math.abs(P(10).y-P(168).y)*H;
+    const t2=Math.abs(P(168).y-P(2).y)*H;
+    const t3=Math.abs(P(2).y-P(152).y)*H;
+    const tSum=t1+t2+t3;
+    const thirdsDev=(Math.abs(t1/tSum-1/3)+Math.abs(t2/tSum-1/3)+Math.abs(t3/tSum-1/3));
+
+    // simetría: eje central x medio de puntos centrales
+    const axis=[10,168,1,2,152].reduce((s,i)=>s+lm[i].x,0)/5;
+    const pairs=[[33,263],[133,362],[61,291],[234,454],[172,397],[70,300]];
+    let asym=0;
+    for(const [r,l] of pairs){
+      const dr=Math.abs(lm[r].x-axis), dl=Math.abs(lm[l].x-axis);
+      asym+=Math.abs(dr-dl)/((dr+dl)/2||1);
+      asym+=Math.abs(lm[r].y-lm[l].y)*1.2; // desnivel vertical
+    }
+    asym/=pairs.length;
+
+    // clasificación de forma
+    let shape;
+    if(len>=1.55) shape="Alargada";
+    else if(len<=1.15 && taper>=0.80) shape="Redonda";
+    else if(taper>=0.86 && len<=1.35) shape="Cuadrada";
+    else if(taper<=0.72) shape="Corazón / Diamante";
+    else shape="Ovalada";
+
+    // sub-puntuaciones 0-100
+    const clamp=(v)=>Math.max(0,Math.min(100,Math.round(v)));
+    const proporcion=clamp(100 - Math.abs(len-1.35)*150 - Math.max(0,round-0.72)*160);
+    const definicion=clamp(100 - Math.max(0,(taper-0.74))*210 - Math.max(0,(0.66-taper))*120);
+    const simetria=clamp(100 - asym*160);
+    const tercios=clamp(100 - thirdsDev*260);
+
+    const overall=Math.round(proporcion*0.30+definicion*0.30+simetria*0.20+tercios*0.20);
+    // potencial: la parte mejorable es sobre todo grasa/postura (proporción+definición)
+    const recoverable=(100-proporcion)*0.28+(100-definicion)*0.26+(100-tercios)*0.05;
+    const potential=Math.min(99,Math.round(overall+Math.max(4,recoverable)));
+
+    return {shape,proporcion,definicion,simetria,tercios,overall,potential,round,taper,len};
+  }
+
+  async function analyze(img){
+    document.getElementById("resultCard").style.display="none";
+    document.getElementById("previewBox").innerHTML=
+      `<div class="preview-wrap"><img id="pvImg" src="${img.src}"/><canvas id="pvCanvas"></canvas></div>`;
+    setStatus('<div class="spinner"></div>Cargando IA y analizando tu rostro…');
+    try{
+      const lmk=await getLandmarker();
+      // Canvas de trabajo a resolución razonable
+      const scale=Math.min(1,720/Math.max(img.naturalWidth,img.naturalHeight));
+      const W=Math.round(img.naturalWidth*scale), H=Math.round(img.naturalHeight*scale);
+      const c=document.createElement("canvas"); c.width=W; c.height=H;
+      c.getContext("2d").drawImage(img,0,0,W,H);
+      const res=lmk.detect(c);
+      if(!res.faceLandmarks||!res.faceLandmarks.length){
+        setStatus("No detecté una cara clara. Usa una foto de frente, con buena luz y la cara centrada.",true);
+        return;
+      }
+      const lm=res.faceLandmarks[0];
+      const m=computeMetrics(lm,W,H);
+      drawOverlay(lm);
+      setStatus("");
+      await saveResult(m,img);
+      renderResult(m);
+    }catch(err){
+      console.error(err);
+      setStatus("No se pudo cargar el analizador (¿sin conexión?). Conéctate a internet la primera vez e inténtalo de nuevo.",true);
+    }
+  }
+
+  function drawOverlay(lm){
+    const imgEl=document.getElementById("pvImg");
+    const cv=document.getElementById("pvCanvas");
+    const draw=()=>{
+      const w=imgEl.clientWidth, h=imgEl.clientHeight;
+      cv.width=w; cv.height=h; const ctx=cv.getContext("2d");
+      ctx.clearRect(0,0,w,h);
+      // contorno facial (oval de landmarks)
+      const OVAL=[10,338,297,332,284,251,389,356,454,323,361,288,397,365,379,378,400,377,152,148,176,149,150,136,172,58,132,93,234,127,162,21,54,103,67,109];
+      ctx.beginPath();
+      OVAL.forEach((i,k)=>{const p=lm[i];const x=p.x*w,y=p.y*h;k?ctx.lineTo(x,y):ctx.moveTo(x,y);});
+      ctx.closePath();
+      ctx.strokeStyle="rgba(94,234,212,.9)"; ctx.lineWidth=2; ctx.stroke();
+      ctx.fillStyle="rgba(59,130,246,.85)";
+      [234,454,172,397,152,10,33,263,61,291].forEach(i=>{const p=lm[i];ctx.beginPath();ctx.arc(p.x*w,p.y*h,3,0,7);ctx.fill();});
+    };
+    if(imgEl.complete) draw(); else imgEl.onload=draw;
+    window.addEventListener("resize",draw,{once:true});
+  }
+
+  /* ================= Guardar resultado + miniatura ================= */
+  async function saveResult(m,img){
+    // miniatura pequeña para historial
+    const s=Math.min(1,200/Math.max(img.naturalWidth,img.naturalHeight));
+    const tc=document.createElement("canvas");
+    tc.width=Math.round(img.naturalWidth*s); tc.height=Math.round(img.naturalHeight*s);
+    tc.getContext("2d").drawImage(img,0,0,tc.width,tc.height);
+    const thumb=tc.toDataURL("image/jpeg",0.7);
+    const entry={ts:Date.now(),date:todayStr(),score:m.overall,potential:m.potential,shape:m.shape,
+      sub:{proporcion:m.proporcion,definicion:m.definicion,simetria:m.simetria,tercios:m.tercios},thumb};
+    history.push(entry);
+    if(history.length>60) history=history.slice(-60);
+    await kvSet("history",history);
+    settings=settings||{}; settings.lastPhotoTs=Date.now();
+    await kvSet("settings",settings);
+    lastResult=m;
+  }
+
+  let lastResult=null;
+
+  /* ================= Render resultado ================= */
+  function animateRing(score){
+    const el=document.getElementById("ringFill");
+    const total=2*Math.PI*52;
+    el.style.transition="stroke-dashoffset 1s ease";
+    requestAnimationFrame(()=>{el.style.strokeDashoffset=total*(1-score/100);});
+    const num=document.getElementById("scoreNum");
+    let cur=0; const step=()=>{cur+=Math.ceil((score-cur)/8);if(cur>=score)cur=score;num.textContent=cur;if(cur<score)requestAnimationFrame(step);};step();
+  }
+  function subRow(label,val){
+    const col=val>=75?"var(--green)":val>=55?"var(--accent)":val>=40?"var(--amber)":"var(--red)";
+    return `<div class="subrow"><div class="top"><span>${label}</span><b>${val}</b></div>
+      <div class="bar"><i style="width:${val}%;background:${col}"></i></div></div>`;
+  }
+  function renderResult(m){
+    document.getElementById("resultCard").style.display="block";
+    animateRing(m.overall);
+    document.getElementById("potNum").textContent=m.potential;
+    document.getElementById("gapNum").textContent="+"+(m.potential-m.overall);
+    const shapeIdeal=m.shape==="Ovalada";
+    document.getElementById("shapePills").innerHTML=
+      `<span class="pill ${shapeIdeal?'good':'warn'}">Forma ${m.shape}</span>`+
+      (m.round>0.78?`<span class="pill warn">Tendencia redonda</span>`:`<span class="pill good">Buen óvalo</span>`);
+    document.getElementById("shapeDesc").textContent=
+      shapeIdeal?"Proporción equilibrada. El objetivo es mantener y definir.":
+      m.shape==="Redonda"?"Cara con tendencia redonda: perder grasa facial y definir la mandíbula marcará mucho.":
+      "Trabajaremos definición y proporción para acercarte a tu potencial.";
+    document.getElementById("subScores").innerHTML=
+      subRow("Proporción / óvalo",m.proporcion)+subRow("Definición mandibular",m.definicion)+
+      subRow("Simetría",m.simetria)+subRow("Armonía de tercios",m.tercios);
+
+    // tips personalizados
+    const tips=[];
+    if(m.round>0.78||m.proporcion<60) tips.push("<b>Reduce la redondez:</b> baja grasa facial con un déficit calórico suave, 20–30 min de cardio y menos sal y azúcar. Bebe 2–3 L de agua para deshinchar.");
+    if(m.definicion<65) tips.push("<b>Define la mandíbula:</b> practica <i>mewing</i> (lengua al paladar), <i>chin tucks</i> y ejercicios de masetero. Duerme boca arriba para reducir hinchazón.");
+    if(m.simetria<65) tips.push("<b>Mejora la simetría:</b> cuida la postura (evita cabeza adelantada) y evita masticar siempre del mismo lado. La asimetría leve es totalmente normal.");
+    if(m.tercios<65) tips.push("<b>Equilibra los tercios:</b> una buena postura de cabeza y un peinado que despeje la frente ayudan visualmente.");
+    tips.push("<b>Piel radiante:</b> limpia mañana y noche, hidrata y usa SPF a diario. La piel cuidada sube mucho la percepción.");
+    tips.push("<b>Base de todo:</b> duerme 8 h y mantén la constancia. Los cambios faciales se ven en semanas, no en días.");
+    document.getElementById("tipsList").innerHTML=tips.map(t=>`<li>${t}</li>`).join("");
+
+    document.getElementById("routineIntro").textContent=
+      `${profile&&profile.name?profile.name+", tu":"Tu"} rutina está enfocada en ${m.round>0.78?"reducir la redondez y":""} definir tu rostro. Marca cada tarea cada día.`;
+  }
+
+  /* ================= Rutina ================= */
+  const DAYNAMES=["Dom","Lun","Mar","Mié","Jue","Vie","Sáb"];
+  const DAILY_COMMON=[
+    {t:"Mewing todo el día",s:"Lengua entera contra el paladar, boca cerrada, respira por la nariz."},
+    {t:"Bebe 2–3 L de agua",s:"Menos sal y azúcar: deshincha la cara."},
+    {t:"Skincare + SPF",s:"Limpia mañana y noche, hidrata y protege del sol."},
+    {t:"Postura de cabeza",s:"Barbilla metida, hombros atrás. 3 recordatorios al día."},
+    {t:"Dormir 8 h (boca arriba)",s:"Clave para bajar la hinchazón facial."}
+  ];
+  const DAILY_FOCUS={
+    1:[{t:"Cardio 25 min",s:"Correr, bici o saltar la comba. Quema grasa (también facial)."},{t:"Chin tucks 3×15",s:"Barbilla atrás como 'doble mentón' controlado."}],
+    2:[{t:"Face yoga 5 min",s:"Mejillas arriba, cara de pez, sonrisa resistida."},{t:"Masetero 3×20",s:"Aprieta la mandíbula con control (no en exceso)."}],
+    3:[{t:"Cardio / HIIT 25 min",s:"Intervalos suaves. Sube el gasto calórico."},{t:"Jaw jut 3×15",s:"Adelanta la mandíbula y aguanta 5 s."}],
+    4:[{t:"Face yoga 6 min",s:"Trabaja mejillas y contorno."},{t:"Chin tucks 3×15",s:"Refuerza la línea del cuello."}],
+    5:[{t:"Cardio 30 min",s:"Sesión más larga para cerrar la semana fuerte."},{t:"Chicle sin azúcar 10 min",s:"Tonifica el masetero de forma ligera."}],
+    6:[{t:"Face yoga completa 8 min",s:"Rutina larga de todos los ejercicios."},{t:"Movilidad de cuello",s:"Estira y relaja para evitar tensión."}],
+    0:[{t:"Descanso activo: paseo 30 min",s:"Recupera. Menos estrés = menos cortisol = menos hinchazón."},{t:"Revisa tu semana",s:"Si toca, hazte la foto semanal en Progreso."}]
+  };
+  let viewDay=new Date().getDay();
+  function tasksFor(d){return [...(DAILY_FOCUS[d]||[]),...DAILY_COMMON];}
+  async function renderRoutine(){
+    const bar=document.getElementById("daysBar"); bar.innerHTML="";
+    const real=new Date().getDay();
+    for(let i=0;i<7;i++){
+      const d=i; const b=document.createElement("button");
+      b.textContent=DAYNAMES[d]+(d===real?" •":"");
+      b.className=d===viewDay?"active":"";
+      b.onclick=()=>{viewDay=d;renderRoutine();};
+      bar.appendChild(b);
+    }
+    const key=todayStr()+"|d"+viewDay;
+    const isToday=viewDay===real;
+    const dateKey=isToday?todayStr():("preview-"+viewDay);
+    const checks=await checksGet(dateKey);
+    const tasks=tasksFor(viewDay);
+    const list=document.getElementById("taskList"); list.innerHTML="";
+    let done=0;
+    tasks.forEach((tk,i)=>{
+      const on=!!checks[i]; if(on) done++;
+      const row=document.createElement("label"); row.className="task"+(on?" done":"");
+      row.innerHTML=`<input type="checkbox" ${on?"checked":""}/><div class="t">${tk.t}<small>${tk.s}</small></div>`;
+      row.querySelector("input").onchange=async e=>{
+        const c=await checksGet(dateKey); c[i]=e.target.checked; await checksSet(dateKey,c);
+        renderRoutine();
+      };
+      list.appendChild(row);
+    });
+    const pct=Math.round(done/tasks.length*100);
+    document.getElementById("dayProg").style.width=pct+"%";
+    document.getElementById("dayProgTxt").textContent=`${done} de ${tasks.length} completado${isToday?" hoy":" (vista previa)"}`;
+  }
+
+  /* ================= Progreso ================= */
+  function renderProgress(){
+    const days=settings&&settings.lastPhotoTs?Math.floor((Date.now()-settings.lastPhotoTs)/86400000):null;
+    const wb=document.getElementById("weekBanner");
+    if(!history.length){
+      wb.innerHTML=`<div class="banner">Aún no tienes análisis. Ve a <b>Analizar</b> y hazte tu primera foto.</div>`;
+    }else if(days!==null && days>=7){
+      wb.innerHTML=`<div class="banner">📸 <b>Toca foto semanal.</b> Han pasado ${days} días. Hazte una foto nueva para comparar tu progreso.</div>`;
+    }else{
+      const left=7-(days||0);
+      wb.innerHTML=`<div class="banner">Vas genial. Próxima foto de seguimiento en <b>${left} día${left===1?"":"s"}</b>. Sigue tu rutina cada día.</div>`;
+    }
+    // gráfico de líneas
+    const box=document.getElementById("chartBox");
+    if(history.length>=2){
+      const scores=history.map(h=>h.score);
+      const W=520,H=120,pad=8;
+      const min=Math.min(...scores)-4,max=Math.max(...scores,history[0].potential||100)+2;
+      const x=i=>pad+i*(W-2*pad)/(scores.length-1);
+      const y=v=>H-pad-(v-min)/(max-min)*(H-2*pad);
+      let path=scores.map((s,i)=>(i?"L":"M")+x(i).toFixed(1)+" "+y(s).toFixed(1)).join(" ");
+      const dots=scores.map((s,i)=>`<circle cx="${x(i).toFixed(1)}" cy="${y(s).toFixed(1)}" r="3.2" fill="#5eead4"/>`).join("");
+      box.innerHTML=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;background:var(--surface2);border:1px solid var(--line);border-radius:12px">
+        <path d="${path}" fill="none" stroke="#5eead4" stroke-width="2.5"/>${dots}</svg>
+        <p class="hint">Evolución de tu puntuación (${scores.length} análisis)</p>`;
+    }else box.innerHTML="";
+    // lista historial (más reciente primero)
+    const hl=document.getElementById("histList"); hl.innerHTML="";
+    [...history].reverse().forEach(h=>{
+      const d=new Date(h.ts);
+      const row=document.createElement("div"); row.className="hist";
+      row.innerHTML=`<img src="${h.thumb}" alt=""/><div class="meta">${h.shape}<br><small>${d.toLocaleDateString("es-ES",{day:"numeric",month:"short",year:"numeric"})} · potencial ${h.potential}</small></div><div class="sc">${h.score}</div>`;
+      hl.appendChild(row);
+    });
+  }
+
+  /* ================= Notificaciones ================= */
+  const notifBtn=document.getElementById("notifBtn");
+  const notifState=document.getElementById("notifState");
+  const notifHelp=document.getElementById("notifHelp");
+  function refreshNotifUI(){
+    if(!("Notification" in window)){notifState.textContent="No soportado en este navegador";notifBtn.style.display="none";return;}
+    const p=Notification.permission;
+    notifState.textContent=p==="granted"?"Activados ✓":p==="denied"?"Bloqueados (actívalos en ajustes del navegador)":"Desactivados";
+    notifBtn.textContent=p==="granted"?"Activados ✓":"Activar";
+    notifBtn.disabled=p==="granted"||p==="denied";
+  }
+  notifBtn.onclick=async()=>{
+    if(!("Notification" in window)) return;
+    const p=await Notification.requestPermission();
+    refreshNotifUI();
+    if(p==="granted"){
+      await registerPeriodic();
+      new Notification("GlowUp",{body:"¡Recordatorios activados! Te avisaré cada día para tu rutina.",icon:"icon-192.png"});
+    }
+  };
+  async function registerPeriodic(){
+    try{
+      const reg=await navigator.serviceWorker.ready;
+      if("periodicSync" in reg){
+        const st=await navigator.permissions.query({name:"periodic-background-sync"}).catch(()=>({state:"granted"}));
+        if(st.state!=="denied"){
+          await reg.periodicSync.register("glowup-daily",{minInterval:24*60*60*1000});
+          notifHelp.textContent="Recordatorio de fondo activo. Funciona mejor con la app instalada en la pantalla de inicio.";
+          return;
+        }
+      }
+      notifHelp.textContent="Tu navegador no permite avisos automáticos en segundo plano; te recordaremos al abrir la app. Instálala para mejores resultados.";
+    }catch(e){ notifHelp.textContent="Te recordaremos al abrir la app."; }
+  }
+  document.getElementById("reminderHour").onchange=async e=>{
+    settings=settings||{}; settings.reminderHour=e.target.value; await kvSet("settings",settings);
+  };
+  document.getElementById("testNotif").onclick=async()=>{
+    if(Notification.permission!=="granted"){alert("Primero activa las notificaciones.");return;}
+    const reg=await navigator.serviceWorker.ready;
+    reg.active&&reg.active.postMessage({type:"show-daily"});
+  };
+  // Recordatorio en primer plano: si ya pasó la hora y hoy no se avisó
+  async function foregroundReminder(){
+    if(!("Notification" in window)||Notification.permission!=="granted") return;
+    settings=settings||{};
+    const hour=settings.reminderHour||"09:00";
+    const [hh,mm]=hour.split(":").map(Number);
+    const now=new Date();
+    const passed=now.getHours()>hh||(now.getHours()===hh&&now.getMinutes()>=mm);
+    if(passed&&settings.notifiedDate!==todayStr()){
+      const reg=await navigator.serviceWorker.ready;
+      reg.active&&reg.active.postMessage({type:"show-daily"});
+      settings.notifiedDate=todayStr(); await kvSet("settings",settings);
+    }
+  }
+
+  /* ================= Instalar PWA ================= */
+  let deferredPrompt=null;
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferredPrompt=e;
+    const b=document.getElementById("installBtn");b.style.display="block";
+    b.onclick=async()=>{b.style.display="none";deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;};});
+
+  /* ================= Reset ================= */
+  document.getElementById("resetBtn").onclick=async()=>{
+    if(!confirm("¿Borrar tu perfil, fotos y progreso? No se puede deshacer.")) return;
+    indexedDB.deleteDatabase("glowup");
+    location.reload();
+  };
+
+  /* ================= Arranque ================= */
+  (async function init(){
+    if("serviceWorker" in navigator){ try{ await navigator.serviceWorker.register("sw.js"); }catch(e){} }
+    profile=await kvGet("profile");
+    settings=(await kvGet("settings"))||{};
+    history=(await kvGet("history"))||[];
+    if(settings.reminderHour) document.getElementById("reminderHour").value=settings.reminderHour;
+    if(profile){ onboardCard.style.display="none"; scanCard.style.display="block"; }
+    else { onboardCard.style.display="block"; scanCard.style.display="none"; }
+    refreshNotifUI();
+    foregroundReminder();
+  })();
+  </script>
+</body>
+</html>
