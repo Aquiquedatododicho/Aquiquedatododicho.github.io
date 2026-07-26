@@ -100,7 +100,8 @@
       display: flex; justify-content: space-between; align-items: center; gap: 10px;
       padding: 7px 0;
     }
-    .ex .n { font-size: 0.88rem; min-width: 0; }
+    .ex .ico { width: 34px; height: 34px; color: var(--muted); flex-shrink: 0; }
+    .ex .n { font-size: 0.88rem; min-width: 0; flex: 1; }
     .ex .n small { display: block; color: var(--muted); font-size: 0.74rem; }
     .ex .exr { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
     .ex .sr {
@@ -151,7 +152,12 @@
     .chips.wrap { flex-wrap: wrap; margin-bottom: 0; }
     .chips.wrap .chip { flex: 0 0 auto; padding: 8px 13px; }
 
-    .meal { padding: 13px 0; border-bottom: 1px solid var(--line); }
+    .meal {
+      padding: 13px 0; border-bottom: 1px solid var(--line);
+      display: flex; align-items: center; gap: 12px; cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .meal .mc { flex: 1; min-width: 0; }
     .meal:last-of-type { border-bottom: none; padding-bottom: 4px; }
     .meal b {
       display: block; font-size: 0.7rem; font-weight: 600; color: var(--accent);
@@ -221,6 +227,12 @@
     body.sheet-open .sheet-backdrop { opacity: 1; pointer-events: auto; }
     body.sheet-open .sheet { transform: none; }
     .sheet .grab { width: 36px; height: 4px; border-radius: 999px; background: var(--line); margin: 0 auto 16px; }
+    .sheet .ilus { color: var(--accent); margin-bottom: 6px; }
+    .sheet a.video {
+      display: block; text-align: center; margin-top: 16px; padding: 12px;
+      border: 1px solid var(--line); border-radius: 999px; color: var(--txt);
+      font-size: 0.88rem; font-weight: 550; text-decoration: none;
+    }
     .sheet .micro { display: block; margin-bottom: 4px; }
     .sheet h3 { font-size: 1.05rem; font-weight: 650; margin-bottom: 10px; }
     .opt {
@@ -587,6 +599,32 @@ function ejercicioDe(p, dayIdx, slotIdx, poolKey) {
 
 const NOMBRE_EQUIPO = Object.fromEntries(EQUIPO);
 
+/* Ilustraciones de cada movimiento (dibujo de trazo, 48x48) */
+const ILUS = {
+  empujeH: '<circle cx="13" cy="29" r="3"/><path d="M17 30h14M24 30V20M16 20h16M16 17v6M32 17v6M31 30l5 10M10 33h22M14 33v7M28 33v7"/>',
+  empujeIncl: '<circle cx="13" cy="24" r="3"/><path d="M16 26l14 8M23 29V18M15 18h16M15 15v6M31 15v6M30 34l4 8M10 36l16-10"/>',
+  aperturas: '<circle cx="13" cy="29" r="3"/><path d="M17 30h14M24 30l-8-10M24 30l8-10"/><circle cx="16" cy="19" r="1.5"/><circle cx="32" cy="19" r="1.5"/><path d="M10 33h22M14 33v7M28 33v7"/>',
+  jalon: '<path d="M14 8h20"/><circle cx="24" cy="16" r="3"/><path d="M24 19v13M22 19l-5-10M26 19l5-10M24 32l7 1M31 33v8"/>',
+  remoH: '<circle cx="13" cy="15" r="3"/><path d="M16 17l11 7M27 24v16M20 20v9M13 29h14M13 26v6M27 26v6"/>',
+  hombroPress: '<path d="M15 9h18"/><circle cx="24" cy="15" r="3"/><path d="M24 18v14M21 19l-3-10M27 19l3-10M24 32l-4 10M24 32l4 10"/>',
+  lateral: '<circle cx="24" cy="10" r="3"/><path d="M24 13v17M24 30l-4 11M24 30l4 11M24 17H13M24 17h11"/><circle cx="11.5" cy="17" r="1.5"/><circle cx="36.5" cy="17" r="1.5"/>',
+  posterior: '<circle cx="14" cy="14" r="3"/><path d="M17 16l11 8M28 24v16M22 20l-7 8M22 20l7 8"/><circle cx="14" cy="29" r="1.5"/><circle cx="30" cy="29" r="1.5"/>',
+  biceps: '<circle cx="24" cy="10" r="3"/><path d="M24 13v17M24 30l-4 11M24 30l4 11M24 17v7M24 24l7-6"/><circle cx="32" cy="17" r="2"/>',
+  triceps: '<circle cx="24" cy="10" r="3"/><path d="M24 13v17M24 30l-4 11M24 30l4 11M31 4v10M24 17l7 7M31 24v7M27 31h8"/>',
+  sentadilla: '<path d="M13 17h20"/><circle cx="26" cy="11" r="3"/><path d="M25 14l-2 12M23 26l8 3M31 29l-2 11M27 40h5"/>',
+  bisagra: '<circle cx="13" cy="17" r="3"/><path d="M16 19l12 7M28 26v15M20 22v11M14 33h13M14 30v6M27 30v6"/>',
+  prensa: '<path d="M6 40h36M8 36l8-9"/><circle cx="13" cy="24" r="3"/><path d="M15 27l5 8M20 35l9-7M29 28l6 6M36 22v18"/>',
+  femoral: '<path d="M8 32h24M12 32v6M28 32v6"/><circle cx="10" cy="28" r="3"/><path d="M14 29h16M30 29l8 1M38 30l2-9"/><circle cx="40" cy="19.5" r="1.5"/>',
+  cuadriceps: '<path d="M15 17v13M14 30h8M19 30v10"/><circle cx="19" cy="12" r="3"/><path d="M19 15v15M19 30h9M28 30l9-6"/><circle cx="38" cy="23.5" r="1.5"/>',
+  gluteo: '<path d="M6 42h32M6 24h8M10 24v10"/><circle cx="10" cy="19" r="3"/><path d="M14 23l11-2M25 21l7 7M32 28v10"/><circle cx="25" cy="17" r="2"/>',
+  gemelo: '<circle cx="22" cy="8" r="3"/><path d="M22 11v16M22 15l6 7M22 27v8M22 35l5 1M25 38h10M35 38v4M10 42h28"/>',
+  core: '<path d="M8 42h32"/><circle cx="12" cy="28" r="3"/><path d="M15 30l19 4M16 31v9M34 34l4 6"/>'
+};
+
+function iluSvg(poolKey, size) {
+  return `<svg viewBox="0 0 48 48" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ILUS[poolKey] || ""}</svg>`;
+}
+
 window.openPicker = (dayIdx, slotIdx) => {
   const p = loadProfile();
   if (!p) return;
@@ -603,9 +641,11 @@ window.openPicker = (dayIdx, slotIdx) => {
     </div>`;
   }).join("");
   $("#sheet").innerHTML = `<div class="grab"></div>
+    <div class="ilus">${iluSvg(poolKey, 56)}</div>
     <span class="micro">${actual[1]}</span>
     <h3>Elige tu ejercicio</h3>
-    ${opts}`;
+    ${opts}
+    <a class="video" href="https://www.youtube.com/results?search_query=${encodeURIComponent("como hacer " + actual[0] + " tecnica")}" target="_blank" rel="noopener">Ver la técnica en vídeo</a>`;
   document.body.classList.add("sheet-open");
 };
 
@@ -657,6 +697,7 @@ function renderRutina(p) {
     const ejercicios = dia[2].map((poolKey, j) => {
       const e = ejercicioDe(p, i, j, poolKey);
       return `<div class="ex" onclick="openPicker(${i},${j})" style="cursor:pointer">
+        <span class="ico">${iluSvg(poolKey, 34)}</span>
         <div class="n">${e[0]}<small>${e[1]}</small></div>
         <div class="exr"><span class="sr">${e[2].replace("{R}", esq.reps)}</span>
         <span class="swap" aria-hidden="true">${PICK_SVG}</span></div>
@@ -705,71 +746,99 @@ function imcCategoria(imc) {
   return "Obesidad";
 }
 
-// Menú distinto para cada día de la semana. Las cantidades entre | son
-// tres raciones según las calorías objetivo: baja | media | alta.
-const MENU_SEMANA = [
-  ["Lunes", [
-    ["Desayuno", "Avena ({40|60|80} g) con leche, plátano y canela."],
-    ["Media mañana", "Una fruta y un puñado de almendras."],
-    ["Comida", "Pollo a la plancha ({130|150|180} g) con arroz ({60|80|110} g en seco) y ensalada con aceite de oliva."],
-    ["Merienda", "Yogur natural con nueces."],
-    ["Cena", "Tortilla francesa de {2|2|3} huevos con verduras salteadas y pan integral."]
-  ]],
-  ["Martes", [
-    ["Desayuno", "{2|2|3} tostadas integrales con tomate, aceite de oliva y pavo."],
-    ["Media mañana", "Yogur con una fruta."],
-    ["Comida", "Lentejas estofadas con verduras ({plato normal|plato grande|plato grande y pan})."],
-    ["Merienda", "Batido de leche y plátano{| con avena| con avena y crema de cacahuete}."],
-    ["Cena", "Merluza al horno con patata cocida ({150|200|250} g) y ensalada."]
-  ]],
-  ["Miércoles", [
-    ["Desayuno", "Yogur griego con avena ({30|40|60} g) y fruta."],
-    ["Media mañana", "Bocadillo pequeño de queso fresco o pavo."],
-    ["Comida", "Pasta ({70|90|120} g en seco) con atún y tomate."],
-    ["Merienda", "Una fruta y un puñado de frutos secos."],
-    ["Cena", "Pechuga de pavo con verduras salteadas y arroz ({40|60|80} g en seco)."]
-  ]],
-  ["Jueves", [
-    ["Desayuno", "Avena ({40|60|80} g) con leche, manzana y canela."],
-    ["Media mañana", "Una fruta{| y un yogur| y un bocadillo pequeño}."],
-    ["Comida", "Garbanzos salteados con verduras y {1|2|2} huevo(s) duro(s)."],
-    ["Merienda", "Yogur con nueces."],
-    ["Cena", "Salmón al horno con boniato ({150|200|250} g) y ensalada."]
-  ]],
-  ["Viernes", [
-    ["Desayuno", "Tostadas con aguacate y {1|2|2} huevo(s)."],
-    ["Media mañana", "Yogur y una fruta."],
-    ["Comida", "Arroz ({60|80|110} g en seco) con ternera magra ({120|150|180} g) y pimientos."],
-    ["Merienda", "Batido de leche, avena y plátano."],
-    ["Cena", "Wrap o pan de pita con pollo, queso y ensalada."]
-  ]],
-  ["Sábado", [
-    ["Desayuno", "Tortitas de avena ({40|60|80} g) y plátano, con un poco de miel."],
-    ["Media mañana", "Una fruta y frutos secos."],
-    ["Comida", "Arroz con pollo y verduras ({plato normal|plato grande|plato grande})."],
-    ["Merienda", "Yogur griego con miel."],
-    ["Cena", "Hamburguesa casera de ternera con pan integral y ensalada."]
-  ]],
-  ["Domingo", [
-    ["Desayuno", "Leche con cacao y {2|2|3} tostadas con crema de cacahuete."],
-    ["Media mañana", "Una fruta."],
-    ["Comida", "Pollo asado con patatas al horno ({150|200|250} g) y ensalada."],
-    ["Merienda", "Yogur con fruta."],
-    ["Cena", "Revuelto de {2|2|3} huevos con champiñones y pan integral."]
-  ]]
+// 7 opciones por comida. Por defecto, el día N de la semana usa la opción N,
+// y cada comida se puede cambiar por cualquier otra opción de su lista.
+// Las cantidades entre | son tres raciones según calorías: baja | media | alta.
+const DIAS_MENU = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+const MEAL_NAMES = ["Desayuno", "Media mañana", "Comida", "Merienda", "Cena"];
+const POOL_MENU = [
+  [ // Desayunos
+    "Avena ({40|60|80} g) con leche, plátano y canela.",
+    "{2|2|3} tostadas integrales con tomate, aceite de oliva y pavo.",
+    "Yogur griego con avena ({30|40|60} g) y fruta.",
+    "Avena ({40|60|80} g) con leche, manzana y canela.",
+    "Tostadas con aguacate y {1|2|2} huevo(s).",
+    "Tortitas de avena ({40|60|80} g) y plátano, con un poco de miel.",
+    "Leche con cacao y {2|2|3} tostadas con crema de cacahuete."
+  ],
+  [ // Medias mañanas
+    "Una fruta y un puñado de almendras.",
+    "Yogur con una fruta.",
+    "Bocadillo pequeño de queso fresco o pavo.",
+    "Una fruta{| y un yogur| y un bocadillo pequeño}.",
+    "Yogur y una fruta.",
+    "Una fruta y frutos secos.",
+    "Una fruta."
+  ],
+  [ // Comidas
+    "Pollo a la plancha ({130|150|180} g) con arroz ({60|80|110} g en seco) y ensalada con aceite de oliva.",
+    "Lentejas estofadas con verduras ({plato normal|plato grande|plato grande y pan}).",
+    "Pasta ({70|90|120} g en seco) con atún y tomate.",
+    "Garbanzos salteados con verduras y {1|2|2} huevo(s) duro(s).",
+    "Arroz ({60|80|110} g en seco) con ternera magra ({120|150|180} g) y pimientos.",
+    "Arroz con pollo y verduras ({plato normal|plato grande|plato grande}).",
+    "Pollo asado con patatas al horno ({150|200|250} g) y ensalada."
+  ],
+  [ // Meriendas
+    "Yogur natural con nueces.",
+    "Batido de leche y plátano{| con avena| con avena y crema de cacahuete}.",
+    "Una fruta y un puñado de frutos secos.",
+    "Queso fresco con miel y nueces.",
+    "Batido de leche, avena y plátano.",
+    "Yogur griego con miel.",
+    "Yogur con fruta."
+  ],
+  [ // Cenas
+    "Tortilla francesa de {2|2|3} huevos con verduras salteadas y pan integral.",
+    "Merluza al horno con patata cocida ({150|200|250} g) y ensalada.",
+    "Pechuga de pavo con verduras salteadas y arroz ({40|60|80} g en seco).",
+    "Salmón al horno con boniato ({150|200|250} g) y ensalada.",
+    "Wrap o pan de pita con pollo, queso y ensalada.",
+    "Hamburguesa casera de ternera con pan integral y ensalada.",
+    "Revuelto de {2|2|3} huevos con champiñones y pan integral."
+  ]
 ];
 
 function tierKcal(kcal) { return kcal < 2100 ? 0 : kcal < 2600 ? 1 : 2; }
-
-function menuDelDia(dia, kcal) {
+function textoComida(m, idx, kcal) {
   const t = tierKcal(kcal);
-  return MENU_SEMANA[dia][1].map(([nombre, texto]) =>
-    [nombre, texto.replace(/\{([^}]*)\}/g, (_, opts) => opts.split("|")[t])]
-  );
+  return POOL_MENU[m][idx].replace(/\{([^}]*)\}/g, (_, opts) => opts.split("|")[t]);
+}
+function idxComida(p, m) {
+  const ov = (p.menuCambios || {})[diaSel + "-" + m];
+  return (ov != null && ov >= 0 && ov < POOL_MENU[m].length) ? ov : diaSel;
 }
 
 let diaSel = (new Date().getDay() + 6) % 7; // 0 = lunes
 window.setDia = i => { diaSel = i; render(); };
+
+window.openMenuPicker = m => {
+  const p = loadProfile();
+  if (!p) return;
+  const d = calcDieta(p);
+  const actual = idxComida(p, m);
+  const opts = POOL_MENU[m].map((_, i) =>
+    `<div class="opt${i === actual ? " sel" : ""}" onclick="pickMenu(${m},${i})">
+      <span class="dot"></span>
+      <div class="on">${textoComida(m, i, d.kcal)}</div>
+    </div>`
+  ).join("");
+  $("#sheet").innerHTML = `<div class="grab"></div>
+    <span class="micro">${DIAS_MENU[diaSel]} · ${MEAL_NAMES[m]}</span>
+    <h3>Elige tu comida</h3>
+    ${opts}`;
+  document.body.classList.add("sheet-open");
+};
+
+window.pickMenu = (m, i) => {
+  const p = loadProfile();
+  if (!p) return;
+  p.menuCambios = p.menuCambios || {};
+  p.menuCambios[diaSel + "-" + m] = i;
+  saveProfile(p);
+  closeSheet();
+  render();
+};
 
 function renderDieta(p) {
   const cont = $("#dieta-content");
@@ -811,14 +880,20 @@ function renderDieta(p) {
     </div>
   </div>`;
 
-  const chips = MENU_SEMANA.map((m, i) =>
-    `<button class="chip${i === diaSel ? " active" : ""}" onclick="setDia(${i})">${m[0][0] === "M" && i === 2 ? "X" : m[0][0]}</button>`
+  const chips = DIAS_MENU.map((n, i) =>
+    `<button class="chip${i === diaSel ? " active" : ""}" onclick="setDia(${i})">${i === 2 ? "X" : n[0]}</button>`
   ).join("");
-  const menu = menuDelDia(diaSel, d.kcal).map(m => `<div class="meal"><b>${m[0]}</b><p>${m[1]}</p></div>`).join("");
+  const menu = MEAL_NAMES.map((nombre, m) =>
+    `<div class="meal" onclick="openMenuPicker(${m})">
+      <div class="mc"><b>${nombre}</b><p>${textoComida(m, idxComida(p, m), d.kcal)}</p></div>
+      <span class="swap" aria-hidden="true">${PICK_SVG}</span>
+    </div>`
+  ).join("");
   html += `<div class="card">
     <span class="micro">Menú semanal · ~${d.kcal} kcal/día</span>
     <div class="chips">${chips}</div>
-    <p class="mutedtext" style="margin-bottom:4px; font-weight:600; color:var(--txt); font-size:0.9rem;">${MENU_SEMANA[diaSel][0]}</p>
+    <p class="mutedtext" style="margin-bottom:2px; font-weight:600; color:var(--txt); font-size:0.9rem;">${DIAS_MENU[diaSel]}</p>
+    <p class="hint">Toca una comida para cambiarla por otra opción.</p>
     ${menu}
   </div>`;
 
