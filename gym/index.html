@@ -100,7 +100,10 @@
       display: flex; justify-content: space-between; align-items: center; gap: 10px;
       padding: 7px 0;
     }
-    .ex .ico { width: 34px; height: 34px; color: var(--muted); flex-shrink: 0; }
+    .ex img.thumb {
+      width: 44px; height: 44px; border-radius: 10px; object-fit: cover;
+      background: #fff; flex-shrink: 0;
+    }
     .ex .n { font-size: 0.88rem; min-width: 0; flex: 1; }
     .ex .n small { display: block; color: var(--muted); font-size: 0.74rem; }
     .ex .exr { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
@@ -227,7 +230,15 @@
     body.sheet-open .sheet-backdrop { opacity: 1; pointer-events: auto; }
     body.sheet-open .sheet { transform: none; }
     .sheet .grab { width: 36px; height: 4px; border-radius: 999px; background: var(--line); margin: 0 auto 16px; }
-    .sheet .ilus { color: var(--accent); margin-bottom: 6px; }
+    .sheet .fotos { display: flex; gap: 10px; margin-bottom: 14px; }
+    .sheet .fotos img {
+      width: calc(50% - 5px); border-radius: 12px; background: #fff;
+      border: 1px solid var(--line);
+    }
+    .opt img.othumb {
+      width: 44px; height: 44px; border-radius: 9px; object-fit: cover;
+      background: #fff; flex-shrink: 0;
+    }
     .sheet a.video {
       display: block; text-align: center; margin-top: 16px; padding: 12px;
       border: 1px solid var(--line); border-radius: 999px; color: var(--txt);
@@ -599,31 +610,73 @@ function ejercicioDe(p, dayIdx, slotIdx, poolKey) {
 
 const NOMBRE_EQUIPO = Object.fromEntries(EQUIPO);
 
-/* Ilustraciones de cada movimiento (dibujo de trazo, 48x48) */
-const ILUS = {
-  empujeH: '<circle cx="13" cy="29" r="3"/><path d="M17 30h14M24 30V20M16 20h16M16 17v6M32 17v6M31 30l5 10M10 33h22M14 33v7M28 33v7"/>',
-  empujeIncl: '<circle cx="13" cy="24" r="3"/><path d="M16 26l14 8M23 29V18M15 18h16M15 15v6M31 15v6M30 34l4 8M10 36l16-10"/>',
-  aperturas: '<circle cx="13" cy="29" r="3"/><path d="M17 30h14M24 30l-8-10M24 30l8-10"/><circle cx="16" cy="19" r="1.5"/><circle cx="32" cy="19" r="1.5"/><path d="M10 33h22M14 33v7M28 33v7"/>',
-  jalon: '<path d="M14 8h20"/><circle cx="24" cy="16" r="3"/><path d="M24 19v13M22 19l-5-10M26 19l5-10M24 32l7 1M31 33v8"/>',
-  remoH: '<circle cx="13" cy="15" r="3"/><path d="M16 17l11 7M27 24v16M20 20v9M13 29h14M13 26v6M27 26v6"/>',
-  hombroPress: '<path d="M15 9h18"/><circle cx="24" cy="15" r="3"/><path d="M24 18v14M21 19l-3-10M27 19l3-10M24 32l-4 10M24 32l4 10"/>',
-  lateral: '<circle cx="24" cy="10" r="3"/><path d="M24 13v17M24 30l-4 11M24 30l4 11M24 17H13M24 17h11"/><circle cx="11.5" cy="17" r="1.5"/><circle cx="36.5" cy="17" r="1.5"/>',
-  posterior: '<circle cx="14" cy="14" r="3"/><path d="M17 16l11 8M28 24v16M22 20l-7 8M22 20l7 8"/><circle cx="14" cy="29" r="1.5"/><circle cx="30" cy="29" r="1.5"/>',
-  biceps: '<circle cx="24" cy="10" r="3"/><path d="M24 13v17M24 30l-4 11M24 30l4 11M24 17v7M24 24l7-6"/><circle cx="32" cy="17" r="2"/>',
-  triceps: '<circle cx="24" cy="10" r="3"/><path d="M24 13v17M24 30l-4 11M24 30l4 11M31 4v10M24 17l7 7M31 24v7M27 31h8"/>',
-  sentadilla: '<path d="M13 17h20"/><circle cx="26" cy="11" r="3"/><path d="M25 14l-2 12M23 26l8 3M31 29l-2 11M27 40h5"/>',
-  bisagra: '<circle cx="13" cy="17" r="3"/><path d="M16 19l12 7M28 26v15M20 22v11M14 33h13M14 30v6M27 30v6"/>',
-  prensa: '<path d="M6 40h36M8 36l8-9"/><circle cx="13" cy="24" r="3"/><path d="M15 27l5 8M20 35l9-7M29 28l6 6M36 22v18"/>',
-  femoral: '<path d="M8 32h24M12 32v6M28 32v6"/><circle cx="10" cy="28" r="3"/><path d="M14 29h16M30 29l8 1M38 30l2-9"/><circle cx="40" cy="19.5" r="1.5"/>',
-  cuadriceps: '<path d="M15 17v13M14 30h8M19 30v10"/><circle cx="19" cy="12" r="3"/><path d="M19 15v15M19 30h9M28 30l9-6"/><circle cx="38" cy="23.5" r="1.5"/>',
-  gluteo: '<path d="M6 42h32M6 24h8M10 24v10"/><circle cx="10" cy="19" r="3"/><path d="M14 23l11-2M25 21l7 7M32 28v10"/><circle cx="25" cy="17" r="2"/>',
-  gemelo: '<circle cx="22" cy="8" r="3"/><path d="M22 11v16M22 15l6 7M22 27v8M22 35l5 1M25 38h10M35 38v4M10 42h28"/>',
-  core: '<path d="M8 42h32"/><circle cx="12" cy="28" r="3"/><path d="M15 30l19 4M16 31v9M34 34l4 6"/>'
+/* Fotos de cada ejercicio (free-exercise-db, dominio público).
+   Cada ejercicio tiene dos fotos: posición inicial (_0) y final (_1). */
+const FOTO = {
+  "Press de banca": "Barbell_Bench_Press_-_Medium_Grip",
+  "Press plano con mancuernas": "Dumbbell_Bench_Press",
+  "Press en multipower": "Smith_Machine_Bench_Press",
+  "Flexiones": "Pushups",
+  "Press inclinado con mancuernas": "Incline_Dumbbell_Press",
+  "Press inclinado con barra": "Barbell_Incline_Bench_Press_-_Medium_Grip",
+  "Flexiones con pies elevados": "Decline_Push-Up",
+  "Aperturas en polea": "Cable_Crossover",
+  "Aperturas con mancuernas": "Dumbbell_Flyes",
+  "Flexiones abiertas": "Pushups",
+  "Jalón al pecho": "Wide-Grip_Lat_Pulldown",
+  "Dominadas": "Pullups",
+  "Remo invertido": "Inverted_Row",
+  "Remo con barra": "Bent_Over_Barbell_Row",
+  "Remo con mancuerna a una mano": "One-Arm_Dumbbell_Row",
+  "Remo en polea baja": "Seated_Cable_Rows",
+  "Press militar con mancuernas": "Standing_Dumbbell_Press",
+  "Press militar con barra": "Standing_Military_Press",
+  "Flexiones en pica": "Handstand_Push-Ups",
+  "Elevaciones laterales": "Side_Lateral_Raise",
+  "Elevaciones laterales en polea": "Cable_Seated_Lateral_Raise",
+  "Elevaciones con botellas o gomas": "Side_Lateral_Raise",
+  "Face pull": "Face_Pull",
+  "Pájaros con mancuernas": "Reverse_Flyes",
+  "Pájaros tumbado sin peso": "Reverse_Flyes",
+  "Curl de bíceps con mancuernas": "Dumbbell_Bicep_Curl",
+  "Curl con barra": "Barbell_Curl",
+  "Curl en polea": "Standing_Biceps_Cable_Curl",
+  "Dominadas supinas": "Chin-Up",
+  "Curl con gomas o mochila": "Dumbbell_Bicep_Curl",
+  "Extensión de tríceps en polea": "Triceps_Pushdown",
+  "Press francés con mancuernas": "EZ-Bar_Skullcrusher",
+  "Fondos en paralelas": "Dips_-_Triceps_Version",
+  "Fondos en banco": "Bench_Dips",
+  "Flexiones diamante": "Push-Ups_-_Close_Triceps_Position",
+  "Sentadilla con barra": "Barbell_Squat",
+  "Sentadilla goblet con mancuerna": "Goblet_Squat",
+  "Sentadilla en multipower": "Smith_Machine_Squat",
+  "Sentadilla con peso corporal": "Bodyweight_Squat",
+  "Peso muerto rumano con barra": "Romanian_Deadlift",
+  "Peso muerto rumano con mancuernas": "Stiff-Legged_Dumbbell_Deadlift",
+  "Buenos días sin peso": "Good_Morning",
+  "Prensa de piernas": "Leg_Press",
+  "Zancadas con mancuernas": "Dumbbell_Lunges",
+  "Zancadas sin peso": "Bodyweight_Walking_Lunge",
+  "Curl femoral en máquina": "Lying_Leg_Curls",
+  "Peso muerto rumano a una pierna": "Kettlebell_One-Legged_Deadlift",
+  "Curl nórdico asistido": "Natural_Glute_Ham_Raise",
+  "Extensión de cuádriceps": "Leg_Extensions",
+  "Sentadilla búlgara": "Split_Squat_with_Dumbbells",
+  "Sentadilla sissy": "Weighted_Sissy_Squat",
+  "Hip thrust con barra": "Barbell_Hip_Thrust",
+  "Hip thrust con mancuerna": "Barbell_Hip_Thrust",
+  "Puente de glúteo": "Butt_Lift_Bridge",
+  "Elevación de gemelos en prensa": "Calf_Press_On_The_Leg_Press_Machine",
+  "Elevación de gemelos con mancuerna": "Standing_Dumbbell_Calf_Raise",
+  "Elevación de gemelos a una pierna": "Standing_Calf_Raises",
+  "Crunch en polea": "Cable_Crunch",
+  "Elevaciones de piernas colgado": "Hanging_Leg_Raise",
+  "Plancha abdominal": "Plank",
+  "Crunch abdominal": "Crunches"
 };
 
-function iluSvg(poolKey, size) {
-  return `<svg viewBox="0 0 48 48" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${ILUS[poolKey] || ""}</svg>`;
-}
+function fotoSrc(nombre, n) { return "img/" + (FOTO[nombre] || "") + "_" + n + ".jpg"; }
 
 window.openPicker = (dayIdx, slotIdx) => {
   const p = loadProfile();
@@ -636,14 +689,18 @@ window.openPicker = (dayIdx, slotIdx) => {
     const material = e[3].length ? e[3].map(k => NOMBRE_EQUIPO[k]).join(" · ") : "Sin material";
     return `<div class="opt${e[0] === actual[0] ? " sel" : ""}" onclick="pickEx(${dayIdx},${slotIdx},'${e[0].replace(/'/g, "\\'")}')">
       <span class="dot"></span>
+      <img class="othumb" src="${fotoSrc(e[0], 0)}" alt="" loading="lazy" />
       <div class="on">${e[0]}<small>${material}</small></div>
       <span class="sets">${e[2].replace("{R}", esq.reps)}</span>
     </div>`;
   }).join("");
   $("#sheet").innerHTML = `<div class="grab"></div>
-    <div class="ilus">${iluSvg(poolKey, 56)}</div>
+    <div class="fotos">
+      <img src="${fotoSrc(actual[0], 0)}" alt="Posición inicial" />
+      <img src="${fotoSrc(actual[0], 1)}" alt="Posición final" />
+    </div>
     <span class="micro">${actual[1]}</span>
-    <h3>Elige tu ejercicio</h3>
+    <h3>${actual[0]}</h3>
     ${opts}
     <a class="video" href="https://www.youtube.com/results?search_query=${encodeURIComponent("como hacer " + actual[0] + " tecnica")}" target="_blank" rel="noopener">Ver la técnica en vídeo</a>`;
   document.body.classList.add("sheet-open");
@@ -697,7 +754,7 @@ function renderRutina(p) {
     const ejercicios = dia[2].map((poolKey, j) => {
       const e = ejercicioDe(p, i, j, poolKey);
       return `<div class="ex" onclick="openPicker(${i},${j})" style="cursor:pointer">
-        <span class="ico">${iluSvg(poolKey, 34)}</span>
+        <img class="thumb" src="${fotoSrc(e[0], 0)}" alt="" loading="lazy" />
         <div class="n">${e[0]}<small>${e[1]}</small></div>
         <div class="exr"><span class="sr">${e[2].replace("{R}", esq.reps)}</span>
         <span class="swap" aria-hidden="true">${PICK_SVG}</span></div>
