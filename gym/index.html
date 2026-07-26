@@ -205,6 +205,40 @@
       margin: 24px 0 8px; opacity: 0.8;
     }
 
+    /* ---- selector de ejercicio (hoja inferior) ---- */
+    .sheet-backdrop {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 20;
+      opacity: 0; pointer-events: none; transition: opacity .22s ease;
+    }
+    .sheet {
+      position: fixed; left: 0; right: 0; bottom: 0; z-index: 21;
+      max-width: 560px; margin: 0 auto; max-height: 72vh; overflow-y: auto;
+      background: var(--surface); border: 1px solid var(--line); border-bottom: none;
+      border-radius: 20px 20px 0 0;
+      padding: 18px 22px calc(22px + env(safe-area-inset-bottom));
+      transform: translateY(105%); transition: transform .25s ease;
+    }
+    body.sheet-open .sheet-backdrop { opacity: 1; pointer-events: auto; }
+    body.sheet-open .sheet { transform: none; }
+    .sheet .grab { width: 36px; height: 4px; border-radius: 999px; background: var(--line); margin: 0 auto 16px; }
+    .sheet .micro { display: block; margin-bottom: 4px; }
+    .sheet h3 { font-size: 1.05rem; font-weight: 650; margin-bottom: 10px; }
+    .opt {
+      display: flex; align-items: center; gap: 14px; padding: 14px 0;
+      border-bottom: 1px solid var(--line); cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .opt:last-child { border-bottom: none; }
+    .opt .dot {
+      width: 9px; height: 9px; border-radius: 50%;
+      border: 1.5px solid var(--muted); flex-shrink: 0;
+    }
+    .opt.sel .dot { background: var(--accent); border-color: var(--accent); }
+    .opt.sel .on { color: var(--accent); }
+    .opt .on { flex: 1; font-size: 0.9rem; min-width: 0; }
+    .opt .on small { display: block; color: var(--muted); font-size: 0.74rem; }
+    .opt .sets { color: var(--muted); font-size: 0.8rem; white-space: nowrap; font-variant-numeric: tabular-nums; }
+
     /* ---- tabs ---- */
     nav.tabs {
       position: fixed; bottom: 0; left: 0; right: 0; z-index: 10;
@@ -291,16 +325,21 @@
             <option value="4">4 días</option>
             <option value="5">5 días</option>
           </select>
-          <label>Máquinas y material de tu gimnasio</label>
-          <p class="hint" style="margin:2px 0 10px">Desmarca lo que no tengas: los ejercicios se adaptarán solos.</p>
-          <div class="chips wrap" id="equipoChips"></div>
           <button type="submit" class="primary">Guardar y generar plan</button>
         </form>
         <button id="installBtn" class="ghost">Instalar la app en el móvil</button>
       </div>
+      <div class="card">
+        <span class="micro">Tu gimnasio</span>
+        <p class="mutedtext">Marca las máquinas y el material que hay en tu gimnasio. La rutina solo te propondrá ejercicios que puedas hacer.</p>
+        <div class="chips wrap" id="equipoChips" style="margin-top:14px"></div>
+      </div>
       <footer>Los cálculos son orientativos y no sustituyen a un médico o nutricionista.</footer>
     </section>
   </div>
+
+  <div class="sheet-backdrop" onclick="closeSheet()"></div>
+  <div class="sheet" id="sheet"></div>
 
   <nav class="tabs">
     <button data-view="rutina" class="active">
@@ -546,21 +585,43 @@ function ejercicioDe(p, dayIdx, slotIdx, poolKey) {
   return avail[(SEMANA_NUM + dayIdx + slotIdx) % avail.length];
 }
 
-window.swapEx = (dayIdx, slotIdx) => {
+const NOMBRE_EQUIPO = Object.fromEntries(EQUIPO);
+
+window.openPicker = (dayIdx, slotIdx) => {
   const p = loadProfile();
   if (!p) return;
   const poolKey = PLANES[p.dias][dayIdx][2][slotIdx];
+  const esq = esquema(p.objetivo);
   const avail = alternativas(poolKey, equipoSet(p));
-  if (avail.length < 2) return;
   const actual = ejercicioDe(p, dayIdx, slotIdx, poolKey);
-  const i = avail.findIndex(e => e[0] === actual[0]);
+  const opts = avail.map(e => {
+    const material = e[3].length ? e[3].map(k => NOMBRE_EQUIPO[k]).join(" · ") : "Sin material";
+    return `<div class="opt${e[0] === actual[0] ? " sel" : ""}" onclick="pickEx(${dayIdx},${slotIdx},'${e[0].replace(/'/g, "\\'")}')">
+      <span class="dot"></span>
+      <div class="on">${e[0]}<small>${material}</small></div>
+      <span class="sets">${e[2].replace("{R}", esq.reps)}</span>
+    </div>`;
+  }).join("");
+  $("#sheet").innerHTML = `<div class="grab"></div>
+    <span class="micro">${actual[1]}</span>
+    <h3>Elige tu ejercicio</h3>
+    ${opts}`;
+  document.body.classList.add("sheet-open");
+};
+
+window.pickEx = (dayIdx, slotIdx, nombre) => {
+  const p = loadProfile();
+  if (!p) return;
   p.cambios = p.cambios || {};
-  p.cambios[p.dias + "-" + dayIdx + "-" + slotIdx] = avail[(i + 1) % avail.length][0];
+  p.cambios[p.dias + "-" + dayIdx + "-" + slotIdx] = nombre;
   saveProfile(p);
+  closeSheet();
   render();
 };
 
-const SWAP_SVG = '<svg viewBox="0 0 24 24"><path d="M7 4 4 7l3 3M4 7h11a5 5 0 0 1 5 5M17 20l3-3-3-3M20 17H9a5 5 0 0 1-5-5"/></svg>';
+window.closeSheet = () => document.body.classList.remove("sheet-open");
+
+const PICK_SVG = '<svg viewBox="0 0 24 24"><path d="m8 9.5 4-4 4 4M8 14.5l4 4 4-4"/></svg>';
 
 function renderRutina(p) {
   const cont = $("#rutina-content");
@@ -587,18 +648,18 @@ function renderRutina(p) {
     </div>
   </div>`;
 
-  html += `<div class="card"><span class="micro">Tu semana · ${p.dias} días · rotación semanal</span>
-    <p class="hint">Los ejercicios cambian cada semana para variar. Toca ⇆ para elegir tú otra alternativa (según el material de tu gimnasio).</p>`;
+  html += `<div class="card"><span class="micro">Tu semana · ${p.dias} días</span>
+    <p class="hint">Toca un ejercicio para elegir entre tus alternativas.</p>`;
   plan.forEach((dia, i) => {
     const diaSem = diasGym[i];
     const esHoy = diaSem === hoy;
     const abierto = esHoy || abiertos.has(String(i));
     const ejercicios = dia[2].map((poolKey, j) => {
       const e = ejercicioDe(p, i, j, poolKey);
-      return `<div class="ex">
+      return `<div class="ex" onclick="openPicker(${i},${j})" style="cursor:pointer">
         <div class="n">${e[0]}<small>${e[1]}</small></div>
         <div class="exr"><span class="sr">${e[2].replace("{R}", esq.reps)}</span>
-        <button class="swap" onclick="swapEx(${i},${j})" aria-label="Cambiar ejercicio">${SWAP_SVG}</button></div>
+        <span class="swap" aria-hidden="true">${PICK_SVG}</span></div>
       </div>`;
     }).join("");
     html += `<div class="day${esHoy ? " today" : ""}${abierto ? " open" : ""}" data-i="${i}">
