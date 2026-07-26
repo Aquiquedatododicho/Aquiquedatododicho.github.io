@@ -142,8 +142,11 @@
     .cut .pic svg{ height:92%; }
     .cut .info{ padding:10px 12px; }
     .cut.main .info{ padding:0; }
+    .cut .pic{ position:relative; text-decoration:none; }
+    .cut .pic-tag{ position:absolute; bottom:6px; right:6px; background:rgba(26,29,35,.82); color:#fff; font-size:.6rem; font-weight:600; padding:3px 7px; border-radius:99px; letter-spacing:.02em; }
     .cut .info .n{ font-size:.86rem; font-weight:600; color:var(--ink); }
     .cut .info .w{ font-size:.76rem; color:var(--muted); margin-top:2px; }
+    .cut .cut-link{ display:inline-block; margin-top:7px; font-size:.76rem; font-weight:600; color:var(--accent); }
     .cut-avoid{ font-size:.8rem; color:var(--muted); margin-top:11px; padding:11px 13px; background:#fbf5e9; border:1px solid #f0e2c6; border-radius:12px; }
     .cut-avoid b{ color:var(--amber); }
 
@@ -278,10 +281,24 @@
         <div style="margin:16px 0 8px;"><span class="micro">Qué mejorar</span></div>
         <ul class="tips" id="tipsList"></ul>
 
-        <div id="haircutBox"></div>
-
         <button class="btn-primary" id="goRoutine" style="margin-top:16px;">Ver mi rutina</button>
         <button class="btn-ghost" id="rescanBtn" style="margin-top:10px;">Analizar otra foto</button>
+      </div>
+
+      <div class="card" id="haircutCard">
+        <span class="micro">Corte de pelo</span>
+        <h2 class="sec">¿Qué corte me queda bien?</h2>
+        <p class="mutedtext" id="cutIntro" style="margin-bottom:14px;">Elige la forma de tu cara (o analízate una foto arriba para detectarla) y mira los cortes que más te favorecen, con fotos reales.</p>
+        <label class="fld"><span>Forma de tu cara</span>
+          <select id="cutShape">
+            <option value="Ovalada">Ovalada</option>
+            <option value="Redonda">Redonda</option>
+            <option value="Cuadrada">Cuadrada</option>
+            <option value="Alargada">Alargada</option>
+            <option value="Corazón / Diamante">Corazón / Diamante</option>
+          </select>
+        </label>
+        <div id="cutShapeBox"></div>
       </div>
     </section>
 
@@ -606,7 +623,8 @@
     tips.push("<b>Base de todo:</b> duerme 8 h y mantén la constancia. Los cambios faciales se ven en semanas, no en días.");
     document.getElementById("tipsList").innerHTML=tips.map(t=>`<li>${t}</li>`).join("");
 
-    renderHaircut(m.shape);
+    document.getElementById("cutShape").value=HAIRCUTS[m.shape]?m.shape:"Ovalada";
+    renderCutShape(document.getElementById("cutShape").value,true);
 
     document.getElementById("routineIntro").textContent=
       `${profile&&profile.name?profile.name+", tu":"Tu"} rutina está enfocada en ${m.round>0.78?"reducir la redondez y":""} definir tu rostro. Marca cada tarea cada día.`;
@@ -660,20 +678,25 @@
       avoid:"Evita mucho volumen en la parte alta de la cabeza." }
   };
 
-  function renderHaircut(shape){
-    const box=document.getElementById("haircutBox");
+  function galleryLink(name){
+    return "https://www.google.com/search?udm=2&q="+encodeURIComponent("corte de pelo "+name+" hombre");
+  }
+  function cutCard(c,isMain){
+    const url=galleryLink(c.n);
+    return `<div class="cut${isMain?' main':''}">
+      <a class="pic" href="${url}" target="_blank" rel="noopener">${hairSVG(c.s)}<span class="pic-tag">Ver fotos</span></a>
+      <div class="info"><div class="n">${c.n}</div><div class="w">${c.w}</div>
+        <a class="cut-link" href="${url}" target="_blank" rel="noopener">Ver fotos reales →</a></div></div>`;
+  }
+  function renderCutShape(shape,detected){
     const data=HAIRCUTS[shape]||HAIRCUTS["Ovalada"];
-    const main=data.styles[0], rest=data.styles.slice(1);
-    box.innerHTML=
-      `<div class="cut-head"><span class="micro">Corte de pelo recomendado</span></div>
-       <p class="mutedtext" style="margin-bottom:12px;">${data.intro}</p>
-       <div class="cut main"><div class="pic">${hairSVG(main.s)}</div>
-         <div class="info"><div class="n">${main.n}</div><div class="w">${main.w}</div></div></div>
-       <div class="cuts">
-         ${rest.map(c=>`<div class="cut"><div class="pic">${hairSVG(c.s)}</div>
-            <div class="info"><div class="n">${c.n}</div><div class="w">${c.w}</div></div></div>`).join("")}
-       </div>
-       <div class="cut-avoid"><b>A evitar:</b> ${data.avoid}</div>`;
+    const [main,...rest]=data.styles;
+    document.getElementById("cutIntro").innerHTML=
+      (detected?`<b style="color:var(--accent)">Detectado en tu foto: cara ${shape}.</b> `:"")+data.intro;
+    document.getElementById("cutShapeBox").innerHTML=
+      cutCard(main,true)+
+      `<div class="cuts">${rest.map(c=>cutCard(c,false)).join("")}</div>`+
+      `<div class="cut-avoid"><b>A evitar:</b> ${data.avoid}</div>`;
   }
 
   /* ================= Rutina ================= */
@@ -845,6 +868,12 @@
     else { onboardCard.style.display="block"; scanCard.style.display="none"; }
     refreshNotifUI();
     foregroundReminder();
+    // corte de pelo: selector siempre disponible
+    const lastShape=history.length?history[history.length-1].shape:null;
+    const cutSel=document.getElementById("cutShape");
+    if(lastShape&&HAIRCUTS[lastShape]) cutSel.value=lastShape;
+    cutSel.onchange=()=>renderCutShape(cutSel.value,false);
+    renderCutShape(cutSel.value,false);
   })();
   </script>
 </body>
