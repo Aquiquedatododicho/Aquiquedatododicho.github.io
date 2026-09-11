@@ -1,0 +1,3 @@
+ffmpeg.wasm (https://github.com/ffmpegwasm/ffmpeg.wasm)
+@ffmpeg/ffmpeg 0.12.15 y @ffmpeg/core 0.12.10 - licencia MIT.
+ffmpeg-core.wasm incluye FFmpeg y libx264, distribuidos bajo GPL/LGPL.

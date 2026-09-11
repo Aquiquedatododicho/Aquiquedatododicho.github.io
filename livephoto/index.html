@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1221" />
+  <meta name="description" content="Convierte cualquier video en una Live Photo de iPhone directamente en el navegador: elige el momento, la foto fija y descarga el par JPG + MOV." />
+  <title>LiveFoto — Convierte videos en Live Photo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg1: #0b1221; --bg2: #162040;
+      --txt: #e7f1ff; --muted: #a7b9d6; --muted-2: #7f93b4;
+      --card: rgba(255,255,255,0.05); --line: rgba(255,255,255,0.08);
+      --acc1: #06b6d4; --acc2: #3b82f6; --ink: #031b30;
+      --ok: #34d399; --warn: #fbbf24; --err: #f87171;
+      --radius: 14px;
+    }
+    html { -webkit-text-size-adjust: 100%; background: var(--bg2); }
+    body {
+      font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(180deg, var(--bg1), var(--bg2) 80%);
+      color: var(--txt); min-height: 100vh; line-height: 1.55;
+      padding: 22px 16px 60px;
+    }
+    .container { max-width: 680px; margin: 0 auto; }
+    a { color: #7dd3fc; }
+
+    header { display: flex; align-items: center; gap: 14px; margin-bottom: 22px; }
+    .logo {
+      width: 58px; height: 58px; flex: none; border-radius: 16px;
+      background: linear-gradient(135deg, var(--acc1), var(--acc2));
+      display: grid; place-items: center; font-weight: 800; color: var(--ink); font-size: 20px;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    h1 { font-size: 1.45rem; color: #f0f5ff; line-height: 1.2; }
+    p.lead { color: var(--muted); margin-top: 4px; font-size: .95rem; }
+    .back { font-size: .85rem; color: var(--muted); text-decoration: none; }
+    .back:hover { color: var(--txt); }
+
+    section.card {
+      background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+      padding: 18px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+    }
+    section.card[hidden] { display: none; }
+    h2 { font-size: 1.05rem; color: #d5e4ff; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
+    .step {
+      width: 26px; height: 26px; border-radius: 50%; flex: none; font-size: .8rem; font-weight: 700;
+      display: grid; place-items: center; background: rgba(255,255,255,0.1); color: #b0d6ff;
+    }
+    .hint { color: var(--muted); font-size: .9rem; }
+    .hint.small { font-size: .8rem; color: var(--muted-2); }
+
+    .drop {
+      display: block; margin-top: 12px; border: 2px dashed rgba(255,255,255,0.18); border-radius: 12px;
+      padding: 26px 16px; text-align: center; cursor: pointer; transition: border-color .2s, background .2s;
+    }
+    .drop:hover, .drop.over { border-color: var(--acc1); background: rgba(6,182,212,0.06); }
+    .drop strong { display: block; font-size: 1rem; margin-bottom: 4px; }
+    .drop input { display: none; }
+
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      padding: 12px 22px; border-radius: 12px; border: 0; cursor: pointer;
+      background: linear-gradient(135deg, var(--acc1), var(--acc2)); color: var(--ink);
+      font-weight: 700; font-size: 1rem; text-decoration: none; font-family: inherit;
+      box-shadow: 0 6px 18px rgba(59,130,246,0.35); transition: transform .1s, opacity .2s;
+    }
+    .btn:hover { transform: translateY(-1px); }
+    .btn:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+    .btn.secondary { background: rgba(255,255,255,0.1); color: var(--txt); box-shadow: none; }
+    .btn.block { width: 100%; }
+
+    video, img.result { width: 100%; max-height: 60vh; border-radius: 12px; background: #000; display: block; object-fit: contain; }
+    .preview-wrap { margin-top: 12px; position: relative; }
+    .file-meta { margin-top: 8px; font-size: .85rem; color: var(--muted); display: flex; gap: 12px; flex-wrap: wrap; }
+
+    .control { margin-top: 16px; }
+    .control label { display: flex; justify-content: space-between; align-items: baseline; font-weight: 600; font-size: .92rem; }
+    .control label span.val { font-weight: 500; color: #7dd3fc; font-variant-numeric: tabular-nums; }
+    .control p.hint { margin-top: 2px; }
+    input[type=range] { width: 100%; margin-top: 8px; accent-color: var(--acc1); }
+    select {
+      width: 100%; margin-top: 8px; padding: 10px 12px; border-radius: 10px; font-family: inherit; font-size: .95rem;
+      background: rgba(255,255,255,0.08); color: var(--txt); border: 1px solid var(--line);
+    }
+    select option { color: #000; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+    .row .btn { flex: 1 1 200px; }
+
+    .progress { margin-top: 12px; height: 10px; border-radius: 999px; background: rgba(255,255,255,0.1); overflow: hidden; }
+    .progress > div { height: 100%; width: 0; background: linear-gradient(90deg, var(--acc1), var(--acc2)); transition: width .25s; }
+    .progress.indeterminate > div { width: 40%; animation: slide 1.2s infinite ease-in-out; }
+    @keyframes slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(260%); } }
+    .status { margin-top: 10px; font-size: .92rem; color: var(--muted); min-height: 1.4em; }
+    .status.error { color: var(--err); }
+    .status.ok { color: var(--ok); }
+    details { margin-top: 10px; }
+    summary { cursor: pointer; font-size: .85rem; color: var(--muted-2); }
+    pre.log {
+      margin-top: 8px; max-height: 200px; overflow: auto; font-size: .72rem; line-height: 1.4;
+      background: rgba(0,0,0,0.35); padding: 10px; border-radius: 8px; color: #9fb3d1; white-space: pre-wrap; word-break: break-all;
+    }
+
+    .results { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .results figure { background: rgba(0,0,0,0.25); border-radius: 12px; padding: 10px; }
+    .results figcaption { font-size: .8rem; color: var(--muted); margin-top: 6px; text-align: center; }
+    @media (max-width: 520px) { .results { grid-template-columns: 1fr; } }
+
+    ol.steps { margin: 10px 0 0 20px; color: var(--muted); }
+    ol.steps li { margin-bottom: 8px; }
+    ol.steps b { color: var(--txt); }
+    .tag { display: inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(255,255,255,0.1); color: #b0d6ff; font-weight: 600; font-size: .8rem; margin: 6px 6px 0 0; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: .85em; background: rgba(255,255,255,0.08); padding: 1px 5px; border-radius: 5px; }
+    footer { text-align: center; margin-top: 24px; font-size: .85rem; color: #94aacc; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">LP</div>
+      <div>
+        <h1>LiveFoto</h1>
+        <p class="lead">Convierte cualquier video en una Live Photo de iPhone. Todo se procesa en tu navegador, sin subir nada a ningún servidor.</p>
+        <a class="back" href="../">← Volver al inicio</a>
+      </div>
+    </header>
+
+    <!-- Paso 1: elegir video -->
+    <section class="card" id="card-file">
+      <h2><span class="step">1</span> Elige un video</h2>
+      <p class="hint">Vale cualquier formato habitual (MP4, MOV, WebM…). Una Live Photo dura hasta 3 segundos, así que después eliges qué trozo quieres.</p>
+      <label class="drop" id="drop">
+        <input type="file" id="file" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi" />
+        <strong>📹 Toca aquí para elegir un video</strong>
+        <span class="hint">o arrástralo a este recuadro</span>
+      </label>
+      <div class="preview-wrap" id="preview-wrap" hidden>
+        <video id="preview" playsinline muted controls preload="metadata"></video>
+        <div class="file-meta"><span id="meta-name"></span><span id="meta-duration"></span><span id="meta-size"></span></div>
+      </div>
+    </section>
+
+    <!-- Paso 2: elegir momento -->
+    <section class="card" id="card-trim" hidden>
+      <h2><span class="step">2</span> Elige el momento</h2>
+      <p class="hint">Mueve los controles y la vista previa de arriba saltará a ese instante.</p>
+
+      <div class="control">
+        <label>Inicio del clip <span class="val" id="start-val">0,0 s</span></label>
+        <input type="range" id="start" min="0" max="0" step="0.05" value="0" />
+      </div>
+      <div class="control">
+        <label>Duración <span class="val" id="len-val">3,0 s</span></label>
+        <input type="range" id="len" min="1" max="3" step="0.1" value="3" />
+      </div>
+      <div class="control">
+        <label>Foto fija (la imagen que se ve quieta) <span class="val" id="still-val">1,5 s</span></label>
+        <input type="range" id="still" min="0" max="3" step="0.05" value="1.5" />
+        <p class="hint small">Suele quedar mejor en el centro del clip, pero puedes ponerla donde quieras.</p>
+      </div>
+      <div class="control">
+        <label>Calidad del video</label>
+        <select id="quality">
+          <option value="1920">Alta (hasta 1080p) — recomendada</option>
+          <option value="1280">Media (hasta 720p) — más rápida</option>
+          <option value="0">Original (puede tardar mucho)</option>
+        </select>
+      </div>
+      <div class="row">
+        <button class="btn secondary" id="play-seg" type="button">▶ Reproducir el trozo elegido</button>
+        <button class="btn" id="convert" type="button">✨ Crear Live Photo</button>
+      </div>
+    </section>
+
+    <!-- Paso 3: progreso -->
+    <section class="card" id="card-progress" hidden>
+      <h2><span class="step">3</span> Procesando</h2>
+      <div class="progress" id="progress"><div></div></div>
+      <div class="status" id="status"></div>
+      <details><summary>Ver registro técnico</summary><pre class="log" id="log"></pre></details>
+    </section>
+
+    <!-- Paso 4: resultado -->
+    <section class="card" id="card-result" hidden>
+      <h2><span class="step">4</span> Tu Live Photo</h2>
+      <p class="hint">Descarga los dos archivos. Llevan el mismo identificador, que es lo que iOS usa para reconocerlos como una sola Live Photo.</p>
+      <div class="results">
+        <figure><img class="result" id="result-img" alt="Foto fija" /><figcaption id="result-img-cap">Foto (JPG)</figcaption></figure>
+        <figure><video id="result-video" playsinline muted loop controls></video><figcaption id="result-video-cap">Video (MOV)</figcaption></figure>
+      </div>
+      <div class="row">
+        <a class="btn" id="dl-jpg" download>⬇ Descargar foto (.JPG)</a>
+        <a class="btn" id="dl-mov" download>⬇ Descargar video (.MOV)</a>
+      </div>
+      <p class="hint small" style="margin-top:10px">Identificador: <code id="result-id"></code></p>
+      <div class="row"><button class="btn secondary block" id="again" type="button">Convertir otro video</button></div>
+    </section>
+
+    <!-- Instrucciones -->
+    <section class="card">
+      <h2>📲 Cómo pasarla al iPhone</h2>
+      <p class="hint">Los dos archivos tienen que llegar juntos a Fotos. Estas son las formas que funcionan:</p>
+      <ol class="steps">
+        <li><b>Desde un Mac:</b> selecciona el JPG y el MOV a la vez y arrástralos a la app Fotos (o Archivo → Importar). Fotos los une como Live Photo. Si tienes Fotos en iCloud, aparece sola en el iPhone.</li>
+        <li><b>AirDrop desde un Mac:</b> selecciona los dos archivos juntos en el Finder y envíalos por AirDrop al iPhone. Se guardan como una Live Photo.</li>
+        <li><b>iCloud en el navegador:</b> entra en <a href="https://www.icloud.com/photos/" target="_blank" rel="noopener">icloud.com/photos</a> y sube los dos archivos en la misma subida.</li>
+        <li><b>Solo con el iPhone:</b> Safari guarda las descargas en Archivos, y desde ahí no se pueden emparejar. Hace falta una app de la App Store que importe pares JPG + MOV (busca "live photo from video").</li>
+      </ol>
+      <div style="margin-top:10px">
+        <span class="tag">Sin servidor</span><span class="tag">ffmpeg en WebAssembly</span><span class="tag">JPG + MOV</span>
+      </div>
+      <p class="hint small" style="margin-top:12px">La primera conversión descarga el motor de video (unos 32 MB). Después se queda en la caché del navegador. Los videos muy grandes pueden agotar la memoria en el móvil: si falla, recorta antes o usa la calidad media.</p>
+    </section>
+
+    <footer>Parte de <a href="../">aquí queda dicho</a> · hecho con HTML, JavaScript y ffmpeg.wasm.</footer>
+  </div>
+
+  <script src="vendor/ffmpeg.js"></script>
+  <script src="livephoto.js"></script>
+  <script>
+  (function () {
+    'use strict';
+    var $ = function (id) { return document.getElementById(id); };
+    var els = {
+      file: $('file'), drop: $('drop'), previewWrap: $('preview-wrap'), preview: $('preview'),
+      metaName: $('meta-name'), metaDuration: $('meta-duration'), metaSize: $('meta-size'),
+      cardTrim: $('card-trim'), cardProgress: $('card-progress'), cardResult: $('card-result'),
+      start: $('start'), len: $('len'), still: $('still'), quality: $('quality'),
+      startVal: $('start-val'), lenVal: $('len-val'), stillVal: $('still-val'),
+      playSeg: $('play-seg'), convert: $('convert'), progress: $('progress'), status: $('status'), log: $('log'),
+      resultImg: $('result-img'), resultVideo: $('result-video'), dlJpg: $('dl-jpg'), dlMov: $('dl-mov'),
+      resultId: $('result-id'), again: $('again')
+    };
+
+    var state = { file: null, url: null, duration: 0, start: 0, len: 3, still: 1.5, busy: false };
+    var ffmpeg = null, ffmpegLoading = null, segmentStop = null;
+
+    function fmt(s) { return s.toFixed(1).replace('.', ',') + ' s'; }
+    function fmtBytes(n) { return n > 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.round(n / 1e3) + ' KB'; }
+    function pad(n) { return (n < 10 ? '0' : '') + n; }
+    function stamp(d) { return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '_' + pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds()); }
+
+    function setStatus(msg, cls) { els.status.textContent = msg; els.status.className = 'status' + (cls ? ' ' + cls : ''); }
+    function setProgress(ratio) {
+      if (ratio == null) { els.progress.classList.add('indeterminate'); return; }
+      els.progress.classList.remove('indeterminate');
+      els.progress.firstElementChild.style.width = Math.round(Math.max(0, Math.min(1, ratio)) * 100) + '%';
+    }
+    function log(line) {
+      els.log.textContent += line + '\n';
+      if (els.log.textContent.length > 20000) els.log.textContent = els.log.textContent.slice(-15000);
+      els.log.scrollTop = els.log.scrollHeight;
+    }
+
+    /* ---------------- Paso 1: archivo ---------------- */
+    function loadFile(file) {
+      if (!file) return;
+      if (state.url) URL.revokeObjectURL(state.url);
+      state.file = file; state.url = URL.createObjectURL(file);
+      els.preview.src = state.url;
+      els.previewWrap.hidden = false;
+      els.metaName.textContent = file.name;
+      els.metaSize.textContent = fmtBytes(file.size);
+      els.metaDuration.textContent = '';
+      els.cardTrim.hidden = true; els.cardResult.hidden = true; els.cardProgress.hidden = true;
+    }
+    els.file.addEventListener('change', function () { loadFile(els.file.files[0]); });
+    ['dragenter', 'dragover'].forEach(function (ev) {
+      els.drop.addEventListener(ev, function (e) { e.preventDefault(); els.drop.classList.add('over'); });
+    });
+    ['dragleave', 'drop'].forEach(function (ev) {
+      els.drop.addEventListener(ev, function (e) { e.preventDefault(); els.drop.classList.remove('over'); });
+    });
+    els.drop.addEventListener('drop', function (e) { loadFile(e.dataTransfer.files[0]); });
+
+    els.preview.addEventListener('error', function () {
+      if (!state.file || !els.cardTrim.hidden) return;
+      // El navegador no sabe reproducir este formato, pero ffmpeg sí: seguimos sin vista previa.
+      els.metaDuration.textContent = 'Sin vista previa (formato no compatible con el navegador; se intentará convertir igualmente)';
+      setupTrim(30);
+    });
+    els.preview.addEventListener('loadedmetadata', function () {
+      var d = els.preview.duration;
+      if (!isFinite(d) || d <= 0) { d = 30; els.metaDuration.textContent = 'Duración desconocida'; }
+      else els.metaDuration.textContent = 'Dura ' + fmt(d);
+      setupTrim(d);
+    });
+    function setupTrim(d) {
+      state.duration = d;
+      state.len = Math.min(3, Math.max(1, d));
+      state.start = 0;
+      state.still = state.len / 2;
+      els.len.max = Math.min(3, Math.max(1, d)).toFixed(1);
+      els.len.value = state.len;
+      syncSliders();
+      els.cardTrim.hidden = false;
+      if (d < 1) setStatus('El video es muy corto, la Live Photo durará ' + fmt(d) + '.');
+    }
+
+    /* ---------------- Paso 2: recorte ---------------- */
+    function syncSliders() {
+      var maxStart = Math.max(0, state.duration - state.len);
+      state.start = Math.min(state.start, maxStart);
+      els.start.max = maxStart.toFixed(2);
+      els.start.value = state.start;
+      els.still.min = state.start.toFixed(2);
+      els.still.max = (state.start + Math.min(state.len, state.duration - state.start)).toFixed(2);
+      state.still = Math.max(state.start, Math.min(state.still, state.start + state.len));
+      els.still.value = state.still;
+      els.startVal.textContent = fmt(state.start);
+      els.lenVal.textContent = fmt(state.len);
+      els.stillVal.textContent = fmt(state.still);
+    }
+    function seek(t) {
+      stopSegment();
+      try { els.preview.currentTime = t; } catch (e) { /* aún sin metadatos */ }
+    }
+    els.start.addEventListener('input', function () {
+      var delta = parseFloat(els.start.value) - state.start;
+      state.start = parseFloat(els.start.value);
+      state.still += delta; // la foto fija acompaña al clip
+      syncSliders(); seek(state.start);
+    });
+    els.len.addEventListener('input', function () {
+      state.len = parseFloat(els.len.value);
+      syncSliders(); seek(state.start + state.len);
+    });
+    els.still.addEventListener('input', function () {
+      state.still = parseFloat(els.still.value);
+      syncSliders(); seek(state.still);
+    });
+
+    function stopSegment() {
+      if (segmentStop) { els.preview.removeEventListener('timeupdate', segmentStop); segmentStop = null; }
+    }
+    els.playSeg.addEventListener('click', function () {
+      stopSegment();
+      var end = state.start + state.len;
+      els.preview.currentTime = state.start;
+      segmentStop = function () { if (els.preview.currentTime >= end) { els.preview.pause(); stopSegment(); } };
+      els.preview.addEventListener('timeupdate', segmentStop);
+      els.preview.play();
+    });
+
+    /* ---------------- ffmpeg ---------------- */
+    function abs(rel) { return new URL(rel, location.href).href; }
+
+    function fetchWithProgress(url, onProgress) {
+      return fetch(url).then(function (res) {
+        if (!res.ok) throw new Error('No se pudo descargar ' + url + ' (' + res.status + ')');
+        var total = parseInt(res.headers.get('Content-Length') || '0', 10);
+        if (!res.body || !total) return res.arrayBuffer();
+        var reader = res.body.getReader(), chunks = [], got = 0;
+        return (function pump() {
+          return reader.read().then(function (r) {
+            if (r.done) return new Blob(chunks).arrayBuffer();
+            chunks.push(r.value); got += r.value.length; onProgress(got / total);
+            return pump();
+          });
+        })();
+      });
+    }
+
+    function getFFmpeg() {
+      if (ffmpeg) return Promise.resolve(ffmpeg);
+      if (ffmpegLoading) return ffmpegLoading;
+      setStatus('Descargando el motor de video (solo la primera vez)…');
+      setProgress(null);
+      ffmpegLoading = fetchWithProgress(abs('vendor/ffmpeg-core.wasm'), function (r) {
+        setProgress(r); setStatus('Descargando el motor de video… ' + Math.round(r * 100) + '%');
+      }).then(function (buf) {
+        var wasmURL = URL.createObjectURL(new Blob([buf], { type: 'application/wasm' }));
+        var inst = new FFmpegWASM.FFmpeg();
+        inst.on('log', function (e) { log(e.message); });
+        setStatus('Iniciando el motor de video…'); setProgress(null);
+        return inst.load({ coreURL: abs('vendor/ffmpeg-core.js'), wasmURL: wasmURL }).then(function () {
+          ffmpeg = inst; ffmpegLoading = null; return inst;
+        });
+      }).catch(function (err) { ffmpegLoading = null; throw err; });
+      return ffmpegLoading;
+    }
+
+    function exec(inst, args, onProgress) {
+      log('$ ffmpeg ' + args.join(' '));
+      var handler = function (e) { if (onProgress) onProgress(e); };
+      inst.on('progress', handler);
+      return inst.exec(args).then(function (code) {
+        inst.off('progress', handler);
+        if (code !== 0) throw new Error('ffmpeg terminó con error (código ' + code + '). Mira el registro técnico.');
+      }, function (err) { inst.off('progress', handler); throw err; });
+    }
+
+    function pngToJpeg(pngBytes) {
+      var blob = new Blob([pngBytes], { type: 'image/png' });
+      return createImageBitmap(blob).then(function (bmp) {
+        var canvas = document.createElement('canvas');
+        canvas.width = bmp.width; canvas.height = bmp.height;
+        canvas.getContext('2d').drawImage(bmp, 0, 0);
+        bmp.close && bmp.close();
+        return new Promise(function (resolve, reject) {
+          canvas.toBlob(function (b) { b ? resolve(b) : reject(new Error('No se pudo generar el JPG')); }, 'image/jpeg', 0.93);
+        });
+      }).then(function (b) { return b.arrayBuffer(); }).then(function (ab) { return new Uint8Array(ab); });
+    }
+
+    function scaleFilter(maxSide) {
+      var f = maxSide > 0
+        ? "scale='min(" + maxSide + ",iw)':'min(" + maxSide + ",ih)':force_original_aspect_ratio=decrease:force_divisible_by=2,"
+        : '';
+      return f + 'fps=30';
+    }
+
+    /* ---------------- Paso 3: conversión ---------------- */
+    var outputs = { jpgUrl: null, movUrl: null };
+    function revokeOutputs() {
+      if (outputs.jpgUrl) URL.revokeObjectURL(outputs.jpgUrl);
+      if (outputs.movUrl) URL.revokeObjectURL(outputs.movUrl);
+      outputs.jpgUrl = outputs.movUrl = null;
+    }
+
+    function convert() {
+      if (state.busy || !state.file) return;
+      state.busy = true; els.convert.disabled = true;
+      stopSegment(); els.preview.pause();
+      els.cardProgress.hidden = false; els.cardResult.hidden = true;
+      els.log.textContent = ''; setProgress(0);
+      revokeOutputs();
+
+      var start = state.start, len = state.len, stillRel = state.still - state.start;
+      var maxSide = parseInt(els.quality.value, 10);
+      var ext = (state.file.name.match(/\.[a-z0-9]{2,5}$/i) || ['.mp4'])[0].toLowerCase();
+      var inName = 'entrada' + ext;
+      var uuid = LivePhoto.randomUUID();
+      var now = new Date();
+      var baseName = 'LiveFoto_' + stamp(now);
+      var inst, jpgBytes, movBytes;
+
+      getFFmpeg().then(function (i) {
+        inst = i;
+        setStatus('Leyendo el video…'); setProgress(null);
+        return state.file.arrayBuffer();
+      }).then(function (buf) {
+        return inst.writeFile(inName, new Uint8Array(buf));
+      }).then(function () {
+        setStatus('Extrayendo la foto fija…'); setProgress(null);
+        return exec(inst, ['-hide_banner', '-ss', String(state.still), '-i', inName, '-map', '0:v:0', '-frames:v', '1', '-f', 'image2', 'foto.png']);
+      }).then(function () {
+        return inst.readFile('foto.png');
+      }).then(function (png) {
+        return pngToJpeg(png);
+      }).then(function (jpg) {
+        jpgBytes = LivePhoto.injectExif(jpg, uuid, now);
+        setStatus('Convirtiendo el video (puede tardar un poco)…'); setProgress(0);
+        return exec(inst, [
+          '-hide_banner', '-ss', String(start), '-i', inName, '-t', String(len),
+          '-map', '0:v:0', '-map', '0:a:0?',
+          '-vf', scaleFilter(maxSide),
+          '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-preset', 'veryfast', '-crf', '22',
+          '-c:a', 'aac', '-b:a', '128k',
+          '-f', 'mov', 'salida.mov'
+        ], function (e) {
+          var ratio = e.time > 0 ? (e.time / 1e6) / len : e.progress;
+          setProgress(ratio); setStatus('Convirtiendo el video… ' + Math.round(Math.max(0, Math.min(1, ratio)) * 100) + '%');
+        });
+      }).then(function () {
+        return inst.readFile('salida.mov');
+      }).then(function (mov) {
+        setStatus('Añadiendo los metadatos de Live Photo…'); setProgress(null);
+        movBytes = LivePhoto.addLivePhotoMetadata(mov, uuid, stillRel);
+        return Promise.all([inst.deleteFile(inName), inst.deleteFile('foto.png'), inst.deleteFile('salida.mov')].map(function (p) { return p.catch(function () {}); }));
+      }).then(function () {
+        var info = LivePhoto.readMovInfo(movBytes);
+        log('Comprobación: identificador ' + info.contentIdentifier + ', pistas ' + info.tracks.map(function (t) { return t.handler; }).join('/'));
+        if (info.contentIdentifier !== uuid || LivePhoto.readJpegContentIdentifier(jpgBytes) !== uuid) {
+          throw new Error('La comprobación final de los metadatos ha fallado.');
+        }
+        outputs.jpgUrl = URL.createObjectURL(new Blob([jpgBytes], { type: 'image/jpeg' }));
+        outputs.movUrl = URL.createObjectURL(new Blob([movBytes], { type: 'video/quicktime' }));
+        els.resultImg.src = outputs.jpgUrl;
+        els.resultVideo.src = outputs.movUrl;
+        els.dlJpg.href = outputs.jpgUrl; els.dlJpg.download = baseName + '.JPG';
+        els.dlMov.href = outputs.movUrl; els.dlMov.download = baseName + '.MOV';
+        $('result-img-cap').textContent = 'Foto (JPG, ' + fmtBytes(jpgBytes.length) + ')';
+        $('result-video-cap').textContent = 'Video (MOV, ' + fmtBytes(movBytes.length) + ')';
+        els.resultId.textContent = uuid;
+        setProgress(1); setStatus('¡Listo! Descarga los dos archivos.', 'ok');
+        els.cardResult.hidden = false;
+        els.cardResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }).catch(function (err) {
+        console.error(err);
+        setProgress(0);
+        setStatus('Error: ' + (err && err.message ? err.message : err), 'error');
+        log('ERROR: ' + (err && err.stack ? err.stack : err));
+        // Un fallo en el motor lo deja inutilizable: lo reiniciamos para el siguiente intento.
+        if (inst) { try { inst.terminate(); } catch (e) {} }
+        ffmpeg = null;
+      }).then(function () {
+        state.busy = false; els.convert.disabled = false;
+      });
+    }
+    els.convert.addEventListener('click', convert);
+    els.again.addEventListener('click', function () {
+      els.cardResult.hidden = true; els.cardProgress.hidden = true;
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      els.file.value = '';
+      els.file.click();
+    });
+
+    if (!window.FFmpegWASM || typeof WebAssembly === 'undefined' || typeof createImageBitmap === 'undefined') {
+      setStatus('Tu navegador no es compatible. Prueba con una versión reciente de Chrome, Safari o Firefox.', 'error');
+      els.cardProgress.hidden = false;
+      els.convert.disabled = true;
+    }
+  })();
+  </script>
+</body>
+</html>
