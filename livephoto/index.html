@@ -191,7 +191,7 @@
     <!-- Paso 4: resultado -->
     <section class="card" id="card-result" hidden>
       <h2><span class="step">4</span> <span id="result-title">Tu Motion Photo</span></h2>
-      <p class="hint" id="result-hint-android">Es un solo archivo JPG con el video escondido dentro. Descárgalo y ábrelo en Google Fotos: verás el icono de movimiento y, al mantenerlo pulsado, se anima.</p>
+      <p class="hint" id="result-hint-android">Es un solo archivo JPG con el video escondido dentro, en el mismo formato que usan los Pixel y los Samsung Galaxy. Descárgalo y ábrelo desde la biblioteca de Google Fotos (carpeta Descargas): verás el icono de movimiento y, al mantenerlo pulsado, se anima.</p>
       <p class="hint" id="result-hint-ios" hidden>Descarga los dos archivos. Llevan el mismo identificador, que es lo que iOS usa para reconocerlos como una sola Live Photo.</p>
       <div class="results">
         <figure><img class="result" id="result-img" alt="Foto fija" /><figcaption id="result-img-cap">Foto (JPG)</figcaption></figure>
@@ -209,9 +209,9 @@
     <section class="card" id="help-android">
       <h2>🤖 Cómo verla en Android</h2>
       <ol class="steps">
-        <li><b>Descarga el archivo</b> (termina en <code>.MP.jpg</code>). Se guarda en la carpeta Descargas.</li>
-        <li><b>Ábrelo con Google Fotos.</b> En la biblioteca, entra en la carpeta Descargas y toca la foto. Verás el icono de "Movimiento" arriba; mantén pulsada la foto para que se reproduzca. Si quieres que se copie a la nube, activa la copia de seguridad de esa carpeta.</li>
-        <li><b>Otras galerías:</b> la galería de Samsung (One UI 5 o superior) y la de los Pixel también la reconocen. En galerías antiguas se verá solo como foto normal, pero el archivo sigue siendo válido.</li>
+        <li><b>Descarga el archivo</b> (termina en <code>.MP.jpg</code>). Se guarda en la carpeta Descargas. No lo abras desde el aviso de descarga de Chrome: así solo se ve como foto normal.</li>
+        <li><b>Abre la app Google Fotos</b>, entra en <b>Biblioteca</b>, luego en la carpeta <b>Download</b> (o Descargas) y toca la foto. Arriba aparece el icono de "Movimiento"; mantén pulsada la foto para que se reproduzca. Si no ves la carpeta, espera un minuto a que Google Fotos la detecte o abre y cierra la app.</li>
+        <li><b>Galería de Samsung:</b> el archivo lleva también el formato de los Galaxy, así que en la Galería de Samsung aparece con el icono de "Foto en movimiento". En otras galerías antiguas se verá solo como foto, pero el archivo sigue siendo válido.</li>
         <li><b>Compártela desde Google Fotos</b> para que el movimiento viaje con ella. Si la envías por WhatsApp o Telegram como imagen, se pierde el video (envíala como archivo).</li>
       </ol>
       <div style="margin-top:10px">
@@ -469,7 +469,7 @@
       var outName = android ? 'salida.mp4' : 'salida.mov';
       var uuid = LivePhoto.randomUUID();
       var now = new Date();
-      var baseName = 'LiveFoto_' + stamp(now);
+      var baseName = (android ? 'MVIMG_' : 'LiveFoto_') + stamp(now);
       var inst, jpgBytes, movBytes;
 
       getFFmpeg().then(function (i) {
@@ -486,7 +486,7 @@
       }).then(function (png) {
         return pngToJpeg(png);
       }).then(function (jpg) {
-        jpgBytes = LivePhoto.injectExif(jpg, uuid, now);
+        jpgBytes = LivePhoto.injectExif(jpg, android ? null : uuid, now);
         setStatus('Convirtiendo el video (puede tardar un poco)…'); setProgress(0);
         var args = [
           '-hide_banner', '-ss', String(start), '-i', inName, '-t', String(len),
@@ -515,8 +515,8 @@
       }).then(function () {
         if (android) {
           var mp = LivePhoto.readMotionPhotoInfo(jpgBytes);
-          log('Comprobación: video incrustado de ' + mp.videoLength + ' bytes, foto fija en ' + mp.presentationUs + ' µs');
-          if (mp.videoLength !== movBytes.length) throw new Error('La comprobación final de la Motion Photo ha fallado.');
+          log('Comprobación: video incrustado de ' + (mp.video ? mp.video.length : 0) + ' bytes, trailer Samsung ' + (mp.samsung ? 'sí' : 'no') + ', foto fija en ' + mp.presentationUs + ' µs');
+          if (!mp.samsung || !mp.video || mp.video.length !== movBytes.length) throw new Error('La comprobación final de la Motion Photo ha fallado.');
         } else {
           var info = LivePhoto.readMovInfo(movBytes);
           log('Comprobación: identificador ' + info.contentIdentifier + ', pistas ' + info.tracks.map(function (t) { return t.handler; }).join('/'));

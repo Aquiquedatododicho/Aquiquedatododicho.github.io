@@ -105,7 +105,6 @@
 
   function buildExifApp1(uuid, date) {
     var when = concat([str(exifDate(date || new Date())), u8(0)]); // 20 bytes
-    var makerNote = buildAppleMakerNote(uuid);
 
     var ifd0Entries = [
       { tag: 0x0132, type: 2, data: when },            // DateTime
@@ -117,9 +116,9 @@
 
     var exifEntries = [
       { tag: 0x9003, type: 2, data: when },            // DateTimeOriginal
-      { tag: 0x9004, type: 2, data: when },            // DateTimeDigitized
-      { tag: 0x927c, type: 7, data: makerNote }        // MakerNote
+      { tag: 0x9004, type: 2, data: when }             // DateTimeDigitized
     ];
+    if (uuid) exifEntries.push({ tag: 0x927c, type: 7, data: buildAppleMakerNote(uuid) }); // MakerNote
 
     var tiff = concat([
       str('MM'), u16(0x002a), u32(ifd0Offset),
@@ -130,21 +129,39 @@
     return concat([new Uint8Array([0xff, 0xe1]), u16(payload.length + 2), payload]);
   }
 
-  // Inserta (o sustituye) el segmento APP1 Exif en un JPEG.
-  function injectExif(jpeg, uuid, date) {
+  // Separa la cabecera de un JPEG en sus segmentos APPn (los que van antes de
+  // los datos de imagen) y clasifica Exif y XMP.
+  function splitJpegHeader(jpeg) {
     if (!(jpeg[0] === 0xff && jpeg[1] === 0xd8)) throw new Error('El archivo no es un JPEG');
-    var app1 = buildExifApp1(uuid, date);
-    var parts = [jpeg.subarray(0, 2), app1];
+    var segs = { app0: [], exif: null, xmp: null, other: [] };
     var p = 2;
-    // Saltamos un APP1 Exif previo si lo hubiera; conservamos el resto tal cual.
     while (p + 4 <= jpeg.length && jpeg[p] === 0xff && jpeg[p + 1] >= 0xe0 && jpeg[p + 1] <= 0xef) {
       var len = readU16(jpeg, p + 2);
-      var isExif = jpeg[p + 1] === 0xe1 && fourcc(jpeg, p + 4) === 'Exif';
-      if (!isExif) parts.push(jpeg.subarray(p, p + 2 + len));
+      var seg = jpeg.subarray(p, p + 2 + len);
+      if (jpeg[p + 1] === 0xe0) segs.app0.push(seg);
+      else if (jpeg[p + 1] === 0xe1 && fourcc(jpeg, p + 4) === 'Exif') segs.exif = seg;
+      else if (jpeg[p + 1] === 0xe1 && fourcc(jpeg, p + 4) === 'http') segs.xmp = seg;
+      else segs.other.push(seg);
       p += 2 + len;
     }
-    parts.push(jpeg.subarray(p));
-    return concat(parts);
+    segs.rest = jpeg.subarray(p);
+    return segs;
+  }
+
+  // Vuelve a montar el JPEG con el orden habitual: APP0 (JFIF), Exif, XMP, resto.
+  function joinJpegHeader(segs) {
+    var parts = [new Uint8Array([0xff, 0xd8])].concat(segs.app0);
+    if (segs.exif) parts.push(segs.exif);
+    if (segs.xmp) parts.push(segs.xmp);
+    return concat(parts.concat(segs.other, [segs.rest]));
+  }
+
+  // Inserta (o sustituye) el segmento APP1 Exif en un JPEG. Si uuid es null no
+  // se escribe el MakerNote de Apple (solo las fechas).
+  function injectExif(jpeg, uuid, date) {
+    var segs = splitJpegHeader(jpeg);
+    segs.exif = buildExifApp1(uuid, date);
+    return joinJpegHeader(segs);
   }
 
   /* ------------------------------------------------------------------ */
@@ -152,13 +169,15 @@
   /* ------------------------------------------------------------------ */
 
   // Una Motion Photo es un JPEG al que se le pega el MP4 al final. Un bloque
-  // XMP dentro del JPEG dice cuanto ocupa el video y en que instante esta la
-  // foto fija. Escribimos el formato actual (Container/Item, "MotionPhoto")
-  // y el antiguo ("MicroVideo") para que lo reconozcan mas apps.
-  function buildXmp(videoLength, presentationUs) {
-    var ts = Math.max(0, Math.round(presentationUs || 0));
+  // XMP dentro del JPEG (formato Motion Photo 1.0 de Google, Container/Item)
+  // dice donde empieza el video y en que instante esta la foto fija. Ademas
+  // envolvemos el video con el trailer SEF de Samsung, que es lo que hacen los
+  // Galaxy: asi lo reconocen tanto Google Fotos como la galeria de Samsung.
+  // La estructura replica la de la herramienta MotionPhoto2.
+  function buildXmp(primaryPadding, videoItemLength, presentationUs) {
+    var ts = presentationUs == null ? -1 : Math.max(0, Math.round(presentationUs));
     return '<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>' +
-      '<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="LiveFoto">' +
+      '<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="Adobe XMP Core 5.1.0-jc003">' +
       '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">' +
       '<rdf:Description rdf:about=""' +
       ' xmlns:GCamera="http://ns.google.com/photos/1.0/camera/"' +
@@ -166,17 +185,37 @@
       ' xmlns:Item="http://ns.google.com/photos/1.0/container/item/"' +
       ' GCamera:MotionPhoto="1"' +
       ' GCamera:MotionPhotoVersion="1"' +
-      ' GCamera:MotionPhotoPresentationTimestampUs="' + ts + '"' +
-      ' GCamera:MicroVideo="1"' +
-      ' GCamera:MicroVideoVersion="1"' +
-      ' GCamera:MicroVideoOffset="' + videoLength + '"' +
-      ' GCamera:MicroVideoPresentationTimestampUs="' + ts + '">' +
+      ' GCamera:MotionPhotoPresentationTimestampUs="' + ts + '">' +
       '<Container:Directory><rdf:Seq>' +
-      '<rdf:li rdf:parseType="Resource"><Container:Item Item:Mime="image/jpeg" Item:Semantic="Primary" Item:Length="0" Item:Padding="0"/></rdf:li>' +
-      '<rdf:li rdf:parseType="Resource"><Container:Item Item:Mime="video/mp4" Item:Semantic="MotionPhoto" Item:Length="' + videoLength + '" Item:Padding="0"/></rdf:li>' +
+      '<rdf:li rdf:parseType="Resource"><Container:Item Item:Mime="image/jpeg" Item:Semantic="Primary" Item:Length="0" Item:Padding="' + primaryPadding + '"/></rdf:li>' +
+      '<rdf:li rdf:parseType="Resource"><Container:Item Item:Mime="video/mp4" Item:Semantic="MotionPhoto" Item:Length="' + videoItemLength + '" Item:Padding="0"/></rdf:li>' +
       '</rdf:Seq></Container:Directory>' +
       '</rdf:Description></rdf:RDF></x:xmpmeta>' +
       '<?xpacket end="w"?>';
+  }
+
+  // Trailer SEF de Samsung con el video dentro (etiqueta MotionPhoto_Data) y la
+  // version (MotionPhoto_Version = mpv3), seguido del indice SEFH...SEFT.
+  var SEF_DATA_ID = new Uint8Array([0x00, 0x00, 0x30, 0x0a]);
+  var SEF_VERSION_ID = new Uint8Array([0x00, 0x00, 0x31, 0x0a]);
+  function le32(v) { return new Uint8Array([v & 255, (v >>> 8) & 255, (v >>> 16) & 255, (v >>> 24) & 255]); }
+  function readLe32(b, o) { return (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0; }
+
+  function buildSamsungTrailer(mp4) {
+    var dataName = str('MotionPhoto_Data'), versionName = str('MotionPhoto_Version');
+    var dataTag = concat([SEF_DATA_ID, le32(dataName.length), dataName, mp4]);
+    var versionTag = concat([SEF_VERSION_ID, le32(versionName.length), versionName, str('mpv3')]);
+    // Los offsets se miden hacia atras desde el inicio de SEFH.
+    var index = concat([
+      str('SEFH'), le32(107), le32(2),
+      SEF_DATA_ID, le32(dataTag.length + versionTag.length), le32(dataTag.length),
+      SEF_VERSION_ID, le32(versionTag.length), le32(versionTag.length)
+    ]);
+    var sefh = concat([index, le32(index.length), str('SEFT')]);
+    return {
+      bytes: concat([dataTag, versionTag, sefh]),
+      videoOffset: 4 + 4 + dataName.length // bytes de cabecera antes del MP4
+    };
   }
 
   var XMP_HEADER = 'http://ns.adobe.com/xap/1.0/';
@@ -200,26 +239,44 @@
   }
 
   function buildMotionPhoto(jpeg, mp4, presentationUs) {
-    var withXmp = injectXmp(jpeg, buildXmp(mp4.length, presentationUs));
-    return concat([withXmp, mp4]);
+    var trailer = buildSamsungTrailer(mp4);
+    // Para Google: el "item" de video empieza en el ftyp del MP4 y llega hasta
+    // el final del archivo; el padding del item principal es la cabecera SEF
+    // que hay entre la imagen y el MP4.
+    var xmp = buildXmp(trailer.videoOffset, trailer.bytes.length - trailer.videoOffset, presentationUs);
+    return concat([injectXmp(jpeg, xmp), trailer.bytes]);
   }
 
   function readMotionPhotoInfo(bytes) {
-    var info = { xmp: null, videoLength: null, presentationUs: null, video: null };
-    var p = 2;
-    while (p + 4 <= bytes.length && bytes[p] === 0xff && bytes[p + 1] >= 0xe0 && bytes[p + 1] <= 0xef) {
-      var len = readU16(bytes, p + 2);
-      if (bytes[p + 1] === 0xe1 && fourcc(bytes, p + 4) === 'http') {
-        info.xmp = new TextDecoder().decode(bytes.subarray(p + 4 + XMP_HEADER.length + 1, p + 2 + len));
-      }
-      p += 2 + len;
+    var info = { xmp: null, primaryPadding: null, videoItemLength: null, presentationUs: null, video: null, samsung: false };
+    var segs = splitJpegHeader(bytes);
+    if (segs.xmp) info.xmp = new TextDecoder().decode(segs.xmp.subarray(4 + XMP_HEADER.length + 1));
+    if (info.xmp) {
+      var m = info.xmp.match(/Item:Semantic="Primary" Item:Length="0" Item:Padding="(\d+)"/);
+      if (m) info.primaryPadding = parseInt(m[1], 10);
+      m = info.xmp.match(/Item:Semantic="MotionPhoto" Item:Length="(\d+)"/);
+      if (m) info.videoItemLength = parseInt(m[1], 10);
+      m = info.xmp.match(/MotionPhotoPresentationTimestampUs="(-?\d+)"/);
+      if (m) info.presentationUs = parseInt(m[1], 10);
     }
-    if (!info.xmp) return info;
-    var m = info.xmp.match(/Item:Semantic="MotionPhoto" Item:Length="(\d+)"/);
-    if (m) info.videoLength = parseInt(m[1], 10);
-    m = info.xmp.match(/MotionPhotoPresentationTimestampUs="(\d+)"/);
-    if (m) info.presentationUs = parseInt(m[1], 10);
-    if (info.videoLength) info.video = bytes.subarray(bytes.length - info.videoLength);
+    // Trailer Samsung: ...SEFH [indice] [tamano indice] SEFT
+    var n = bytes.length;
+    if (fourcc(bytes, n - 4) === 'SEFT') {
+      var indexLen = readLe32(bytes, n - 8), sefhStart = n - 8 - indexLen;
+      if (fourcc(bytes, sefhStart) === 'SEFH') {
+        var count = readLe32(bytes, sefhStart + 8);
+        for (var i = 0; i < count; i++) {
+          var e = sefhStart + 12 + i * 12;
+          if (bytes[e + 2] === 0x30 && bytes[e + 3] === 0x0a) {
+            var tagStart = sefhStart - readLe32(bytes, e + 4), tagLen = readLe32(bytes, e + 8);
+            var nameLen = readLe32(bytes, tagStart + 4);
+            info.video = bytes.subarray(tagStart + 8 + nameLen, tagStart + tagLen);
+            info.samsung = true;
+          }
+        }
+      }
+    }
+    if (!info.video && info.videoItemLength) info.video = bytes.subarray(n - info.videoItemLength);
     return info;
   }
 
