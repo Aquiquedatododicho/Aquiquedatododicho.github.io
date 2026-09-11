@@ -148,6 +148,82 @@
   }
 
   /* ------------------------------------------------------------------ */
+  /* Motion Photo (Android / Google Fotos)                               */
+  /* ------------------------------------------------------------------ */
+
+  // Una Motion Photo es un JPEG al que se le pega el MP4 al final. Un bloque
+  // XMP dentro del JPEG dice cuanto ocupa el video y en que instante esta la
+  // foto fija. Escribimos el formato actual (Container/Item, "MotionPhoto")
+  // y el antiguo ("MicroVideo") para que lo reconozcan mas apps.
+  function buildXmp(videoLength, presentationUs) {
+    var ts = Math.max(0, Math.round(presentationUs || 0));
+    return '<?xpacket begin="\ufeff" id="W5M0MpCehiHzreSzNTczkc9d"?>' +
+      '<x:xmpmeta xmlns:x="adobe:ns:meta/" x:xmptk="LiveFoto">' +
+      '<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">' +
+      '<rdf:Description rdf:about=""' +
+      ' xmlns:GCamera="http://ns.google.com/photos/1.0/camera/"' +
+      ' xmlns:Container="http://ns.google.com/photos/1.0/container/"' +
+      ' xmlns:Item="http://ns.google.com/photos/1.0/container/item/"' +
+      ' GCamera:MotionPhoto="1"' +
+      ' GCamera:MotionPhotoVersion="1"' +
+      ' GCamera:MotionPhotoPresentationTimestampUs="' + ts + '"' +
+      ' GCamera:MicroVideo="1"' +
+      ' GCamera:MicroVideoVersion="1"' +
+      ' GCamera:MicroVideoOffset="' + videoLength + '"' +
+      ' GCamera:MicroVideoPresentationTimestampUs="' + ts + '">' +
+      '<Container:Directory><rdf:Seq>' +
+      '<rdf:li rdf:parseType="Resource"><Container:Item Item:Mime="image/jpeg" Item:Semantic="Primary" Item:Length="0" Item:Padding="0"/></rdf:li>' +
+      '<rdf:li rdf:parseType="Resource"><Container:Item Item:Mime="video/mp4" Item:Semantic="MotionPhoto" Item:Length="' + videoLength + '" Item:Padding="0"/></rdf:li>' +
+      '</rdf:Seq></Container:Directory>' +
+      '</rdf:Description></rdf:RDF></x:xmpmeta>' +
+      '<?xpacket end="w"?>';
+  }
+
+  var XMP_HEADER = 'http://ns.adobe.com/xap/1.0/';
+
+  // Inserta (o sustituye) el segmento APP1 XMP detras de los APPn existentes.
+  function injectXmp(jpeg, xmpText) {
+    if (!(jpeg[0] === 0xff && jpeg[1] === 0xd8)) throw new Error('El archivo no es un JPEG');
+    var payload = concat([str(XMP_HEADER), u8(0), str(xmpText)]);
+    if (payload.length + 2 > 0xffff) throw new Error('XMP demasiado grande');
+    var app1 = concat([new Uint8Array([0xff, 0xe1]), u16(payload.length + 2), payload]);
+    var parts = [jpeg.subarray(0, 2)];
+    var p = 2;
+    while (p + 4 <= jpeg.length && jpeg[p] === 0xff && jpeg[p + 1] >= 0xe0 && jpeg[p + 1] <= 0xef) {
+      var len = readU16(jpeg, p + 2);
+      var isXmp = jpeg[p + 1] === 0xe1 && fourcc(jpeg, p + 4) === 'http';
+      if (!isXmp) parts.push(jpeg.subarray(p, p + 2 + len));
+      p += 2 + len;
+    }
+    parts.push(app1, jpeg.subarray(p));
+    return concat(parts);
+  }
+
+  function buildMotionPhoto(jpeg, mp4, presentationUs) {
+    var withXmp = injectXmp(jpeg, buildXmp(mp4.length, presentationUs));
+    return concat([withXmp, mp4]);
+  }
+
+  function readMotionPhotoInfo(bytes) {
+    var info = { xmp: null, videoLength: null, presentationUs: null, video: null };
+    var p = 2;
+    while (p + 4 <= bytes.length && bytes[p] === 0xff && bytes[p + 1] >= 0xe0 && bytes[p + 1] <= 0xef) {
+      var len = readU16(bytes, p + 2);
+      if (bytes[p + 1] === 0xe1 && fourcc(bytes, p + 4) === 'http') {
+        info.xmp = new TextDecoder().decode(bytes.subarray(p + 4 + XMP_HEADER.length + 1, p + 2 + len));
+      }
+      p += 2 + len;
+    }
+    if (!info.xmp) return info;
+    var m = info.xmp.match(/Item:Semantic="MotionPhoto" Item:Length="(\d+)"/);
+    if (m) info.videoLength = parseInt(m[1], 10);
+    m = info.xmp.match(/MotionPhotoPresentationTimestampUs="(\d+)"/);
+    if (m) info.presentationUs = parseInt(m[1], 10);
+    if (info.videoLength) info.video = bytes.subarray(bytes.length - info.videoLength);
+    return info;
+  }
+
+  /* ------------------------------------------------------------------ */
   /* QuickTime / MOV                                                     */
   /* ------------------------------------------------------------------ */
 
@@ -389,6 +465,8 @@
     buildExifApp1: buildExifApp1,
     injectExif: injectExif,
     addLivePhotoMetadata: addLivePhotoMetadata,
+    buildMotionPhoto: buildMotionPhoto,
+    readMotionPhotoInfo: readMotionPhotoInfo,
     readMovInfo: readMovInfo,
     readJpegContentIdentifier: readJpegContentIdentifier
   };

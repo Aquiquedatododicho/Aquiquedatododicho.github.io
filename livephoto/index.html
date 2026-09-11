@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0b1221" />
-  <meta name="description" content="Convierte cualquier video en una Live Photo de iPhone directamente en el navegador: elige el momento, la foto fija y descarga el par JPG + MOV." />
-  <title>LiveFoto — Convierte videos en Live Photo</title>
+  <meta name="description" content="Convierte cualquier video en una foto en movimiento (Motion Photo para Android o Live Photo para iPhone) directamente en el navegador." />
+  <title>LiveFoto — Convierte videos en Motion Photo y Live Photo</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -42,7 +42,7 @@
       background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
       padding: 18px; margin-bottom: 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.2);
     }
-    section.card[hidden] { display: none; }
+    [hidden] { display: none !important; }
     h2 { font-size: 1.05rem; color: #d5e4ff; margin-bottom: 10px; display: flex; align-items: center; gap: 10px; }
     .step {
       width: 26px; height: 26px; border-radius: 50%; flex: none; font-size: .8rem; font-weight: 700;
@@ -121,7 +121,7 @@
       <div class="logo">LP</div>
       <div>
         <h1>LiveFoto</h1>
-        <p class="lead">Convierte cualquier video en una Live Photo de iPhone. Todo se procesa en tu navegador, sin subir nada a ningún servidor.</p>
+        <p class="lead">Convierte cualquier video en una foto en movimiento: Motion Photo para Android o Live Photo para iPhone. Todo se procesa en tu navegador, sin subir nada a ningún servidor.</p>
         <a class="back" href="../">← Volver al inicio</a>
       </div>
     </header>
@@ -129,7 +129,7 @@
     <!-- Paso 1: elegir video -->
     <section class="card" id="card-file">
       <h2><span class="step">1</span> Elige un video</h2>
-      <p class="hint">Vale cualquier formato habitual (MP4, MOV, WebM…). Una Live Photo dura hasta 3 segundos, así que después eliges qué trozo quieres.</p>
+      <p class="hint">Vale cualquier formato habitual (MP4, MOV, WebM…). Una foto en movimiento dura hasta 3 segundos, así que después eliges qué trozo quieres.</p>
       <label class="drop" id="drop">
         <input type="file" id="file" accept="video/*,.mp4,.mov,.m4v,.webm,.mkv,.avi" />
         <strong>📹 Toca aquí para elegir un video</strong>
@@ -160,6 +160,13 @@
         <p class="hint small">Suele quedar mejor en el centro del clip, pero puedes ponerla donde quieras.</p>
       </div>
       <div class="control">
+        <label>¿Para qué móvil?</label>
+        <select id="target">
+          <option value="android">Android — Motion Photo (Google Fotos)</option>
+          <option value="ios">iPhone — Live Photo (JPG + MOV)</option>
+        </select>
+      </div>
+      <div class="control">
         <label>Calidad del video</label>
         <select id="quality">
           <option value="1920">Alta (hasta 1080p) — recomendada</option>
@@ -169,7 +176,7 @@
       </div>
       <div class="row">
         <button class="btn secondary" id="play-seg" type="button">▶ Reproducir el trozo elegido</button>
-        <button class="btn" id="convert" type="button">✨ Crear Live Photo</button>
+        <button class="btn" id="convert" type="button">✨ Crear foto en movimiento</button>
       </div>
     </section>
 
@@ -183,22 +190,37 @@
 
     <!-- Paso 4: resultado -->
     <section class="card" id="card-result" hidden>
-      <h2><span class="step">4</span> Tu Live Photo</h2>
-      <p class="hint">Descarga los dos archivos. Llevan el mismo identificador, que es lo que iOS usa para reconocerlos como una sola Live Photo.</p>
+      <h2><span class="step">4</span> <span id="result-title">Tu Motion Photo</span></h2>
+      <p class="hint" id="result-hint-android">Es un solo archivo JPG con el video escondido dentro. Descárgalo y ábrelo en Google Fotos: verás el icono de movimiento y, al mantenerlo pulsado, se anima.</p>
+      <p class="hint" id="result-hint-ios" hidden>Descarga los dos archivos. Llevan el mismo identificador, que es lo que iOS usa para reconocerlos como una sola Live Photo.</p>
       <div class="results">
         <figure><img class="result" id="result-img" alt="Foto fija" /><figcaption id="result-img-cap">Foto (JPG)</figcaption></figure>
-        <figure><video id="result-video" playsinline muted loop controls></video><figcaption id="result-video-cap">Video (MOV)</figcaption></figure>
+        <figure id="result-video-fig"><video id="result-video" playsinline muted loop controls></video><figcaption id="result-video-cap">Video</figcaption></figure>
       </div>
       <div class="row">
         <a class="btn" id="dl-jpg" download>⬇ Descargar foto (.JPG)</a>
         <a class="btn" id="dl-mov" download>⬇ Descargar video (.MOV)</a>
       </div>
-      <p class="hint small" style="margin-top:10px">Identificador: <code id="result-id"></code></p>
+      <p class="hint small" style="margin-top:10px" id="result-id-row">Identificador: <code id="result-id"></code></p>
       <div class="row"><button class="btn secondary block" id="again" type="button">Convertir otro video</button></div>
     </section>
 
     <!-- Instrucciones -->
-    <section class="card">
+    <section class="card" id="help-android">
+      <h2>🤖 Cómo verla en Android</h2>
+      <ol class="steps">
+        <li><b>Descarga el archivo</b> (termina en <code>.MP.jpg</code>). Se guarda en la carpeta Descargas.</li>
+        <li><b>Ábrelo con Google Fotos.</b> En la biblioteca, entra en la carpeta Descargas y toca la foto. Verás el icono de "Movimiento" arriba; mantén pulsada la foto para que se reproduzca. Si quieres que se copie a la nube, activa la copia de seguridad de esa carpeta.</li>
+        <li><b>Otras galerías:</b> la galería de Samsung (One UI 5 o superior) y la de los Pixel también la reconocen. En galerías antiguas se verá solo como foto normal, pero el archivo sigue siendo válido.</li>
+        <li><b>Compártela desde Google Fotos</b> para que el movimiento viaje con ella. Si la envías por WhatsApp o Telegram como imagen, se pierde el video (envíala como archivo).</li>
+      </ol>
+      <div style="margin-top:10px">
+        <span class="tag">Sin servidor</span><span class="tag">ffmpeg en WebAssembly</span><span class="tag">Motion Photo v1</span>
+      </div>
+      <p class="hint small" style="margin-top:12px">La primera conversión descarga el motor de video (unos 32 MB). Después se queda en la caché del navegador. Los videos muy grandes pueden agotar la memoria en el móvil: si falla, recorta antes o usa la calidad media.</p>
+    </section>
+
+    <section class="card" id="help-ios" hidden>
       <h2>📲 Cómo pasarla al iPhone</h2>
       <p class="hint">Los dos archivos tienen que llegar juntos a Fotos. Estas son las formas que funcionan:</p>
       <ol class="steps">
@@ -230,10 +252,22 @@
       startVal: $('start-val'), lenVal: $('len-val'), stillVal: $('still-val'),
       playSeg: $('play-seg'), convert: $('convert'), progress: $('progress'), status: $('status'), log: $('log'),
       resultImg: $('result-img'), resultVideo: $('result-video'), dlJpg: $('dl-jpg'), dlMov: $('dl-mov'),
-      resultId: $('result-id'), again: $('again')
+      resultId: $('result-id'), again: $('again'), target: $('target'),
+      resultTitle: $('result-title'), resultHintAndroid: $('result-hint-android'), resultHintIos: $('result-hint-ios'),
+      resultVideoFig: $('result-video-fig'), resultIdRow: $('result-id-row'), helpAndroid: $('help-android'), helpIos: $('help-ios')
     };
 
-    var state = { file: null, url: null, duration: 0, start: 0, len: 3, still: 1.5, busy: false };
+    var state = { file: null, url: null, duration: 0, start: 0, len: 3, still: 1.5, busy: false, target: 'android' };
+
+    function applyTarget() {
+      state.target = els.target.value;
+      var android = state.target === 'android';
+      els.helpAndroid.hidden = !android; els.helpIos.hidden = android;
+      try { localStorage.setItem('livefoto-target', state.target); } catch (e) {}
+    }
+    try { var saved = localStorage.getItem('livefoto-target'); if (saved === 'ios' || saved === 'android') els.target.value = saved; } catch (e) {}
+    els.target.addEventListener('change', applyTarget);
+    applyTarget();
     var ffmpeg = null, ffmpegLoading = null, segmentStop = null;
 
     function fmt(s) { return s.toFixed(1).replace('.', ',') + ' s'; }
@@ -428,9 +462,11 @@
       revokeOutputs();
 
       var start = state.start, len = state.len, stillRel = state.still - state.start;
+      var android = state.target === 'android';
       var maxSide = parseInt(els.quality.value, 10);
       var ext = (state.file.name.match(/\.[a-z0-9]{2,5}$/i) || ['.mp4'])[0].toLowerCase();
       var inName = 'entrada' + ext;
+      var outName = android ? 'salida.mp4' : 'salida.mov';
       var uuid = LivePhoto.randomUUID();
       var now = new Date();
       var baseName = 'LiveFoto_' + stamp(now);
@@ -452,39 +488,62 @@
       }).then(function (jpg) {
         jpgBytes = LivePhoto.injectExif(jpg, uuid, now);
         setStatus('Convirtiendo el video (puede tardar un poco)…'); setProgress(0);
-        return exec(inst, [
+        var args = [
           '-hide_banner', '-ss', String(start), '-i', inName, '-t', String(len),
           '-map', '0:v:0', '-map', '0:a:0?',
           '-vf', scaleFilter(maxSide),
           '-c:v', 'libx264', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-preset', 'veryfast', '-crf', '22',
-          '-c:a', 'aac', '-b:a', '128k',
-          '-f', 'mov', 'salida.mov'
-        ], function (e) {
+          '-c:a', 'aac', '-b:a', '128k'
+        ];
+        if (android) args.push('-movflags', '+faststart', '-f', 'mp4', outName);
+        else args.push('-f', 'mov', outName);
+        return exec(inst, args, function (e) {
           var ratio = e.time > 0 ? (e.time / 1e6) / len : e.progress;
           setProgress(ratio); setStatus('Convirtiendo el video… ' + Math.round(Math.max(0, Math.min(1, ratio)) * 100) + '%');
         });
       }).then(function () {
-        return inst.readFile('salida.mov');
-      }).then(function (mov) {
-        setStatus('Añadiendo los metadatos de Live Photo…'); setProgress(null);
-        movBytes = LivePhoto.addLivePhotoMetadata(mov, uuid, stillRel);
-        return Promise.all([inst.deleteFile(inName), inst.deleteFile('foto.png'), inst.deleteFile('salida.mov')].map(function (p) { return p.catch(function () {}); }));
+        return inst.readFile(outName);
+      }).then(function (video) {
+        setStatus('Montando la foto en movimiento…'); setProgress(null);
+        if (android) {
+          movBytes = video;
+          jpgBytes = LivePhoto.buildMotionPhoto(jpgBytes, video, stillRel * 1e6);
+        } else {
+          movBytes = LivePhoto.addLivePhotoMetadata(video, uuid, stillRel);
+        }
+        return Promise.all([inst.deleteFile(inName), inst.deleteFile('foto.png'), inst.deleteFile(outName)].map(function (p) { return p.catch(function () {}); }));
       }).then(function () {
-        var info = LivePhoto.readMovInfo(movBytes);
-        log('Comprobación: identificador ' + info.contentIdentifier + ', pistas ' + info.tracks.map(function (t) { return t.handler; }).join('/'));
-        if (info.contentIdentifier !== uuid || LivePhoto.readJpegContentIdentifier(jpgBytes) !== uuid) {
-          throw new Error('La comprobación final de los metadatos ha fallado.');
+        if (android) {
+          var mp = LivePhoto.readMotionPhotoInfo(jpgBytes);
+          log('Comprobación: video incrustado de ' + mp.videoLength + ' bytes, foto fija en ' + mp.presentationUs + ' µs');
+          if (mp.videoLength !== movBytes.length) throw new Error('La comprobación final de la Motion Photo ha fallado.');
+        } else {
+          var info = LivePhoto.readMovInfo(movBytes);
+          log('Comprobación: identificador ' + info.contentIdentifier + ', pistas ' + info.tracks.map(function (t) { return t.handler; }).join('/'));
+          if (info.contentIdentifier !== uuid || LivePhoto.readJpegContentIdentifier(jpgBytes) !== uuid) {
+            throw new Error('La comprobación final de los metadatos ha fallado.');
+          }
         }
         outputs.jpgUrl = URL.createObjectURL(new Blob([jpgBytes], { type: 'image/jpeg' }));
-        outputs.movUrl = URL.createObjectURL(new Blob([movBytes], { type: 'video/quicktime' }));
+        outputs.movUrl = URL.createObjectURL(new Blob([movBytes], { type: android ? 'video/mp4' : 'video/quicktime' }));
         els.resultImg.src = outputs.jpgUrl;
         els.resultVideo.src = outputs.movUrl;
-        els.dlJpg.href = outputs.jpgUrl; els.dlJpg.download = baseName + '.JPG';
-        els.dlMov.href = outputs.movUrl; els.dlMov.download = baseName + '.MOV';
-        $('result-img-cap').textContent = 'Foto (JPG, ' + fmtBytes(jpgBytes.length) + ')';
-        $('result-video-cap').textContent = 'Video (MOV, ' + fmtBytes(movBytes.length) + ')';
-        els.resultId.textContent = uuid;
-        setProgress(1); setStatus('¡Listo! Descarga los dos archivos.', 'ok');
+        els.resultTitle.textContent = android ? 'Tu Motion Photo' : 'Tu Live Photo';
+        els.resultHintAndroid.hidden = !android; els.resultHintIos.hidden = android;
+        els.resultVideoFig.hidden = android; els.dlMov.hidden = android; els.resultIdRow.hidden = android;
+        if (android) {
+          els.dlJpg.href = outputs.jpgUrl; els.dlJpg.download = baseName + '.MP.jpg';
+          els.dlJpg.textContent = '⬇ Descargar Motion Photo (.jpg)';
+          $('result-img-cap').textContent = 'Motion Photo (JPG con video dentro, ' + fmtBytes(jpgBytes.length) + ')';
+        } else {
+          els.dlJpg.href = outputs.jpgUrl; els.dlJpg.download = baseName + '.JPG';
+          els.dlJpg.textContent = '⬇ Descargar foto (.JPG)';
+          els.dlMov.href = outputs.movUrl; els.dlMov.download = baseName + '.MOV';
+          $('result-img-cap').textContent = 'Foto (JPG, ' + fmtBytes(jpgBytes.length) + ')';
+          $('result-video-cap').textContent = 'Video (MOV, ' + fmtBytes(movBytes.length) + ')';
+          els.resultId.textContent = uuid;
+        }
+        setProgress(1); setStatus(android ? '¡Listo! Descarga el archivo y ábrelo en Google Fotos.' : '¡Listo! Descarga los dos archivos.', 'ok');
         els.cardResult.hidden = false;
         els.cardResult.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }).catch(function (err) {
